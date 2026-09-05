@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en" class="h-full bg-stone-950 text-stone-100">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>24 | Need Something? Riders Roll Out.</title>
+    <meta name="description" content="24/7/365 bicycle-and-cargo-cart mobile retail and essential-supply delivery service in Manchester, NH. Target delivery ≤60 min." />
+    <meta property="og:title" content="24 | Need Something? Riders Roll Out." />
+    <meta property="og:description" content="24/7/365 bicycle-and-cargo-cart mobile retail and essential-supply delivery service in Manchester, NH. Target delivery ≤60 min." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0c0a09" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="24" />
+    <meta name="application-name" content="24" />
+    <meta name="msapplication-TileColor" content="#0c0a09" />
+    
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="h-full bg-stone-950 text-stone-100 antialiased selection:bg-amber-500 selection:text-black">
+    <div id="root" class="h-full"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Capture early beforeinstallprompt before React hydration
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredPWAInstallPrompt = e;
+      });
+
+      // Purge any stale service worker caches on startup to ensure React modules are never stale
+      if ('caches' in window) {
+        caches.keys().then((keys) => {
+          keys.forEach((key) => {
+            if (!key.startsWith('trader24-v6')) {
+              console.log('[PWA] Evicting stale cache:', key);
+              caches.delete(key);
+            }
+          });
+        }).catch(() => {});
+      }
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(reg => {
+              reg.update();
+              reg.onupdatefound = () => {
+                const installingWorker = reg.installing;
+                if (installingWorker) {
+                  installingWorker.onstatechange = () => {
+                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      console.log('[PWA] New service worker version installed and available.');
+                    }
+                  };
+                }
+              };
+            })
+            .catch(err => {
+              console.log('SW registration note:', err);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,229 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   CSS ENVIRONMENT VARIABLE OVERRIDES & SAFE AREA SYSTEM
+   Ensures robust clearance for iPhone notch, Dynamic Island, status bar,
+   and bottom navigation home swipe indicators across all mobile devices.
+   ========================================================================== */
+:root {
+  /* Safe Area Insets with resilient fallback values */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+
+  /* Shorthand aliases */
+  --sat: var(--safe-area-top);
+  --sar: var(--safe-area-right);
+  --sab: var(--safe-area-bottom);
+  --sal: var(--safe-area-left);
+
+  /* Calibrated container dimensions and safe clearances */
+  --header-safe-padding-top: var(--sat);
+  --bottom-nav-safe-padding-bottom: max(0.625rem, var(--sab));
+  --bottom-nav-height: 3.5rem;
+  --bottom-nav-total-clearance: calc(var(--bottom-nav-height) + var(--bottom-nav-safe-padding-bottom));
+  --modal-safe-bottom: max(1.25rem, var(--sab));
+  --modal-safe-top: max(0.75rem, var(--sat));
+  --toast-safe-top: calc(4rem + var(--sat));
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+    background-color: #0c0a09;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    letter-spacing: -0.01em;
+    -webkit-tap-highlight-color: transparent;
+    background-color: #0c0a09;
+    min-height: 100vh;
+    min-height: 100dvh;
+    /* Respect horizontal landscape notch / Dynamic Island */
+    padding-left: var(--sal);
+    padding-right: var(--sar);
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: 'Chakra Petch', 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  .font-mono-code {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* ==========================================================================
+   MAJOR PAGE CONTAINER AUTOMATIC SAFE AREA OVERRIDES
+   ========================================================================== */
+
+/* 1. Top Header Container: Extends background smoothly behind notch/status bar */
+header,
+.site-header {
+  padding-top: var(--header-safe-padding-top);
+}
+
+/* 2. Bottom Navigation Bar: Cushions icons away from home indicator */
+nav.fixed.bottom-0,
+nav[role="navigation"].fixed,
+.bottom-nav-container {
+  padding-bottom: var(--bottom-nav-safe-padding-bottom);
+}
+
+/* 3. Main Content Container: Guarantees content scrolls above bottom bar */
+main {
+  padding-left: max(0.875rem, var(--sal));
+  padding-right: max(0.875rem, var(--sar));
+}
+
+@media (max-width: 768px) {
+  body:has(nav.fixed.bottom-0) main,
+  main.has-bottom-nav {
+    padding-bottom: max(7.5rem, calc(5.25rem + var(--sab))) !important;
+  }
+}
+
+/* 4. Modals, Sheets, and Full-Screen Dialog Overlays */
+.fixed.inset-0.items-center,
+.fixed.inset-0.items-end {
+  padding-top: max(1rem, var(--sat));
+  padding-bottom: max(1.25rem, var(--sab));
+  padding-left: max(0.75rem, var(--sal));
+  padding-right: max(0.75rem, var(--sar));
+}
+
+/* Slide-out Cart Drawer: safe top header & bottom checkout bar */
+.fixed.inset-0.justify-end > div {
+  padding-top: var(--sat);
+  padding-bottom: 0;
+}
+
+.fixed.inset-0.justify-end > div > div:last-child {
+  padding-bottom: max(1.25rem, var(--sab));
+}
+
+/* 5. Floating Status Badges & Top Notifications */
+#pwa-offline-indicator {
+  top: calc(3.5rem + var(--sat));
+}
+
+.fixed.top-16 {
+  top: var(--toast-safe-top);
+  right: max(1rem, var(--sar));
+}
+
+/* Standalone iOS PWA Mode: Enhanced top padding under black-translucent status bar */
+@media all and (display-mode: standalone) {
+  header,
+  .site-header {
+    padding-top: max(1.25rem, var(--sat));
+  }
+}
+
+/* Landscape Mode: Extra horizontal padding to prevent notch obstruction */
+@media (orientation: landscape) {
+  main {
+    padding-left: max(1.5rem, var(--sal));
+    padding-right: max(1.5rem, var(--sar));
+  }
+}
+
+/* ==========================================================================
+   UTILITY CLASSES FOR SAFE AREA OVERRIDES
+   ========================================================================== */
+
+.pt-safe {
+  padding-top: max(0.5rem, var(--sat));
+}
+
+.pt-safe-top {
+  padding-top: var(--sat);
+}
+
+.pb-safe {
+  padding-bottom: max(0.75rem, var(--sab));
+}
+
+.pb-safe-bottom {
+  padding-bottom: var(--sab);
+}
+
+.pl-safe {
+  padding-left: max(0.75rem, var(--sal));
+}
+
+.pr-safe {
+  padding-right: max(0.75rem, var(--sar));
+}
+
+.px-safe {
+  padding-left: max(1rem, var(--sal));
+  padding-right: max(1rem, var(--sar));
+}
+
+.py-safe {
+  padding-top: max(0.5rem, var(--sat));
+  padding-bottom: max(0.75rem, var(--sab));
+}
+
+.p-safe {
+  padding-top: max(0.5rem, var(--sat));
+  padding-right: max(1rem, var(--sar));
+  padding-bottom: max(0.75rem, var(--sab));
+  padding-left: max(1rem, var(--sal));
+}
+
+.mb-safe {
+  margin-bottom: max(0.75rem, var(--sab));
+}
+
+.mt-safe {
+  margin-top: max(0.5rem, var(--sat));
+}
+
+.top-safe {
+  top: var(--sat);
+}
+
+.bottom-safe {
+  bottom: var(--sab);
+}
+
+.h-safe-screen {
+  height: calc(100vh - var(--sat) - var(--sab));
+  height: calc(100dvh - var(--sat) - var(--sab));
+}
+
+.min-h-safe-screen {
+  min-height: calc(100vh - var(--sat) - var(--sab));
+  min-height: calc(100dvh - var(--sat) - var(--sab));
+}
+
+/* Custom industrial scrollbars & touch optimizations */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1c1917;
+}
+::-webkit-scrollbar-thumb {
+  background: #44403c;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #78716c;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

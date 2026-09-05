@@ -1,0 +1,62 @@
+{
+  "id": "/",
+  "name": "24",
+  "short_name": "24",
+  "description": "24/7/365 bicycle mobile retail and essential delivery in Manchester, NH. Target delivery ≤60 min.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0c0a09",
+  "theme_color": "#0c0a09",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["shopping", "lifestyle", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Shop Essentials",
+      "short_name": "Shop",
+      "description": "Browse cargo cart mobile store products",
+      "url": "/?tab=shop",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Free Essential Program",
+      "short_name": "Free Item",
+      "description": "Select eligible community essential with your order",
+      "url": "/?tab=free",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Rider Cockpit",
+      "short_name": "Rider",
+      "description": "Access active bicycle courier dispatch",
+      "url": "/?role=rider",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}

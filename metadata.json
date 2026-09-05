@@ -1,0 +1,7 @@
+{
+  "name": "24",
+  "description": "24/7/365 bicycle-and-cargo-cart mobile retail and essential-supply delivery service in Manchester, NH. Target delivery ≤60 min.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
