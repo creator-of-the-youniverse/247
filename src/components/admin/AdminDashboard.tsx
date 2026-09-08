@@ -545,19 +545,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <button
               onClick={() => setEditingProduct({
-                name: '',
-                category: 'ESSENTIALS',
-                retail_price: 3.00,
-                member_price: 2.50,
-                unit_cost: 0.80,
-                weight: 150,
-                free_eligible: false,
-                age_restricted: false,
-                compliance_status: 'APPROVED',
-                delivery_allowed: true,
-                active: true,
-                inventory_on_hand: 20,
-                description: 'Essential mobile supply item'
+                name: ''
               })}
               className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs font-mono flex items-center gap-1.5"
             >
@@ -729,6 +717,9 @@ export const AdminDashboard: React.FC = () => {
 
             <form onSubmit={handleProductSave} className="space-y-3 text-xs font-mono">
               <div>
+                <div>
+                  <label className="text-neutral-700 block mb-1">SKU</label><input type="text" required value={editingProduct.sku || ""} onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg p-2 text-neutral-900" />
+                </div>
                 <label className="text-neutral-700 block mb-1">Product Name</label>
                 <input
                   type="text"
@@ -746,8 +737,8 @@ export const AdminDashboard: React.FC = () => {
                     type="number"
                     step="0.25"
                     required
-                    value={editingProduct.retail_price || 0}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, retail_price: parseFloat(e.target.value) || 0 })}
+                    value={editingProduct.retail_price ?? ''}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, retail_price: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
                     className="w-full bg-neutral-50 border border-neutral-200 rounded-lg p-2 text-neutral-900"
                   />
                 </div>
@@ -757,8 +748,8 @@ export const AdminDashboard: React.FC = () => {
                     type="number"
                     step="0.25"
                     required
-                    value={editingProduct.member_price || 0}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, member_price: parseFloat(e.target.value) || 0 })}
+                    value={editingProduct.member_price ?? ''}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, member_price: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
                     className="w-full bg-neutral-50 border border-neutral-200 rounded-lg p-2 text-neutral-900"
                   />
                 </div>
@@ -771,18 +762,18 @@ export const AdminDashboard: React.FC = () => {
                     type="number"
                     step="0.05"
                     required
-                    value={editingProduct.unit_cost || 0}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, unit_cost: parseFloat(e.target.value) || 0 })}
+                    value={editingProduct.unit_cost ?? ''}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, unit_cost: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
                     className="w-full bg-neutral-50 border border-neutral-200 rounded-lg p-2 text-neutral-900"
                   />
                 </div>
-                <div>
+                <div><label className="text-neutral-700 block mb-1">Initial Inventory (Units)</label><input type="number" min="0" step="1" required value={editingProduct.inventory_on_hand ?? ""} onChange={(e) => setEditingProduct({ ...editingProduct, inventory_on_hand: e.target.value === "" ? undefined : parseInt(e.target.value, 10) })} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg p-2 text-neutral-900" /></div><div>
                   <label className="text-neutral-700 block mb-1">Weight (Grams)</label>
                   <input
                     type="number"
                     required
-                    value={editingProduct.weight || 100}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, weight: parseInt(e.target.value) || 100 })}
+                    value={editingProduct.weight ?? ''}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, weight: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })}
                     className="w-full bg-neutral-50 border border-neutral-200 rounded-lg p-2 text-neutral-900"
                   />
                 </div>

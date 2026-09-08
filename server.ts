@@ -222,10 +222,8 @@ async function startServer() {
   // Attach global auth extraction middleware
   app.use(authenticateUser);
 
-  // Initialize Firestore collections from seed if empty (run asynchronously so server starts instantly)
-  ensureFirestoreSeeded(false).catch(err => {
-    console.error('Initial Firestore seed check error:', err);
-  });
+  // Production startup intentionally does not seed demo data.
+  // Demo data is loaded explicitly by the onboarding/demo flow.
 
   // --- API ROUTES ---
 
@@ -314,12 +312,18 @@ async function startServer() {
     try {
       const db = getFirestoreDb();
       const data = req.body;
+    if (typeof data.sku !== "string" || data.sku.trim() === "") {
+      return res.status(400).json({ error: "A real SKU is required when creating a product." });
+    }
+    if (!Number.isInteger(data.inventory_on_hand) || data.inventory_on_hand < 0) {
+      return res.status(400).json({ error: "A real initial inventory quantity is required when creating a product." });
+    }
       const id = `prod-${Date.now()}`;
       const newProduct: Product = {
         ...data,
         id,
-        sku: data.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-        inventory_available: Number(data.inventory_on_hand || 0),
+        sku: data.sku.trim(),
+        inventory_available: data.inventory_on_hand,
         inventory_reserved: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()

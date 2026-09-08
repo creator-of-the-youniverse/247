@@ -698,10 +698,14 @@ export function calculateBreakEven(
       average_contribution_per_order: averageContributionPerOrder,
       average_order_value: averageOrderValue,
       is_sustainable: false,
+      break_even_achievable: false,
       warning_message: 'NO POSITIVE BREAK-EVEN — CURRENT ORDER ECONOMICS ARE UNSUSTAINABLE (Negative or Zero Unit Contribution).',
       break_even_orders_month: 0,
+      monthly_orders_required: 0,
       break_even_orders_day: 0,
-      break_even_revenue_month: 0
+      daily_orders_required: 0,
+      break_even_revenue_month: 0,
+      break_even_revenue_required: 0,
     };
   }
 
@@ -714,9 +718,13 @@ export function calculateBreakEven(
     average_contribution_per_order: Number(averageContributionPerOrder.toFixed(2)),
     average_order_value: Number(averageOrderValue.toFixed(2)),
     is_sustainable: true,
+    break_even_achievable: true,
     break_even_orders_month: breakEvenOrdersMonth,
+    monthly_orders_required: breakEvenOrdersMonth,
     break_even_orders_day: breakEvenOrdersDay,
-    break_even_revenue_month: breakEvenRevenueMonth
+    daily_orders_required: breakEvenOrdersDay,
+    break_even_revenue_month: breakEvenRevenueMonth,
+    break_even_revenue_required: breakEvenRevenueMonth,
   };
 }
 
@@ -776,7 +784,9 @@ export function runScenarioSimulation(inputs: ScenarioInputs): ScenarioResults {
     estimated_operating_result: Number(estimatedOperatingResult.toFixed(2)),
     average_contribution_per_order: Number(unitContribution.toFixed(2)),
     break_even_orders_month: breakEvenOrdersMonth,
+    monthly_orders_required: breakEvenOrdersMonth,
     break_even_orders_day: breakEvenOrdersDay,
+    daily_orders_required: breakEvenOrdersDay,
     break_even_members: breakEvenMembers,
     is_sustainable: isSustainable
   };
