@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider } from './context/AuthContext';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { Header } from './components/Header';
@@ -131,6 +132,9 @@ const MainApp: React.FC = () => {
 
       {/* Industrial Notifications */}
       <ToastContainer />
+
+      {/* Vercel Speed Insights */}
+      <SpeedInsights />
     </div>
   );
 };
