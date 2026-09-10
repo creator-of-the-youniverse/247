@@ -59,15 +59,15 @@ function createPng(width, height, getPixel) {
 }
 
 // Draw crisp 247 glyphs on a grid
-// 7x7 grid for T, 2, 4
+// 7x7 grid for 7, 2, 4
 const GLYPH_7 = [
   "1111111",
+  "0000001",
+  "0000010",
+  "0000100",
   "0001000",
-  "0001000",
-  "0001000",
-  "0001000",
-  "0001000",
-  "0001000"
+  "0010000",
+  "0100000"
 ];
 
 const GLYPH_2 = [
