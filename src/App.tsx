@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider } from './context/AuthContext';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { Header } from './components/Header';
@@ -140,6 +141,7 @@ export function App() {
     <AuthProvider>
       <StoreProvider>
         <MainApp />
+        <Analytics />
       </StoreProvider>
     </AuthProvider>
   );
