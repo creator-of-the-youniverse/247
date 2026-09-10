@@ -80,16 +80,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart }) => {
         <div className="px-3 sm:px-6 h-16 max-w-7xl mx-auto flex items-center justify-between gap-3">
           {/* Brand & Live Telemetry Title Section */}
           <div className="flex items-center gap-3 shrink-0 min-w-0">
-            {/* 24 Emblem Icon */}
+            {/* 247 Emblem Icon */}
             <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-stone-950 font-black text-base sm:text-lg tracking-tight shadow-md font-display shrink-0 ring-1 ring-amber-400/50">
-              24
+              247
             </div>
 
             {/* Title & Status Text Lockup */}
             <div className="min-w-0 flex flex-col justify-center">
               <div className="flex items-center gap-2">
                 <span className="font-display font-black text-base sm:text-lg text-white tracking-wider leading-none truncate">
-                  24
+              247
                 </span>
                 <span className="hidden sm:inline-flex text-[10px] px-1.5 py-0.5 bg-stone-900 text-stone-400 rounded font-mono-code border border-stone-800">
                   MHT-01

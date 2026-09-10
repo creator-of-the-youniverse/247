@@ -1287,7 +1287,7 @@ export const INITIAL_SPONSORS: SponsorContribution[] = [
     amount: 150.00,
     date: '2026-08-22T09:15:00Z',
     campaign: 'Essential First Aid Care Packs',
-    message: 'Thank you 24 for rolling when nobody else does.'
+    message: 'Thank you 247 for rolling when nobody else does.'
   }
 ];
 

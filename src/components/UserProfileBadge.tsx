@@ -189,7 +189,7 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({ onOpenAuthMo
           <button
             id="header-sign-in-btn"
             onClick={onOpenAuthModal}
-            title="Sign in to your 24 account"
+            title="Sign in to your 247 account"
             className="h-10 px-2.5 sm:px-3.5 rounded-xl bg-stone-900 hover:bg-stone-850 text-stone-200 hover:text-white border border-stone-800 hover:border-amber-500/50 text-xs font-semibold font-mono-code tracking-wide flex items-center gap-1.5 sm:gap-2 transition-all shadow-sm shrink-0 whitespace-nowrap active:scale-95"
           >
             <LogIn className="w-4 h-4 text-amber-400 shrink-0" />

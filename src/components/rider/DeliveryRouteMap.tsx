@@ -316,7 +316,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
     const hubMarker = L.marker(storeCoords, { icon: hubIcon, zIndexOffset: 800 }).addTo(group);
     hubMarker.bindPopup(`
       <div style="font-family: monospace; font-size: 11px; color: #1c1917; padding: 4px;">
-        <strong style="color: #d97706; text-transform: uppercase; display: block; margin-bottom: 2px;">24 Base Hub</strong>
+        <strong style="color: #d97706; text-transform: uppercase; display: block; margin-bottom: 2px;">247 Base Hub</strong>
         <div>${TRADER24_STORE_HUB.address}</div>
         <div style="color: #78716c; margin-top: 4px;">Central Inventory Resupply & Dispatch</div>
       </div>

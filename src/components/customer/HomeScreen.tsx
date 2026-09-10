@@ -62,7 +62,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {/* Primary Typography Branding */}
           <div className="pt-2">
             <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white font-display uppercase leading-none">
-              24
+              247
             </h1>
             <p className="text-xl sm:text-2xl font-black text-amber-400 tracking-wide font-display mt-2">
               NEED SOMETHING?

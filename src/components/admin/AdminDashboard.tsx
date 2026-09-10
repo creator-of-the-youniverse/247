@@ -277,7 +277,7 @@ export const AdminDashboard: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <span className="font-bold text-lg text-white uppercase tracking-wider">
-              24 OPERATING SYSTEM
+              247 OPERATING SYSTEM
             </span>
             <span className="text-[10px] bg-amber-500 text-neutral-950 font-bold px-2 py-0.5 rounded font-mono">
               PHASE 3A ECONOMICS ENGINE
@@ -606,7 +606,7 @@ export const AdminDashboard: React.FC = () => {
               Compliance Enforcement Firewall
             </div>
             <p className="text-xs text-rose-950 font-mono leading-relaxed">
-              24 strictly prohibits controlled substances, illegal drugs, and prescription medication. Unapproved products are strictly blocked by server-side middleware from customer views and order checkout.
+              247 strictly prohibits controlled substances, illegal drugs, and prescription medication. Unapproved products are strictly blocked by server-side middleware from customer views and order checkout.
             </p>
           </div>
 

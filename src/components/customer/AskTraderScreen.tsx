@@ -17,7 +17,7 @@ interface AskTraderScreenProps {
 }
 
 const FAQS = [
-  "How fast does 24 deliver?",
+  "How fast does 247 deliver?",
   "How does Trader Pass work?",
   "What is the Free Essential item program?",
   "What areas of Manchester do you cover?",
@@ -30,7 +30,7 @@ export const AskTraderScreen: React.FC<AskTraderScreenProps> = ({ isOpen, onClos
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'trader'; text: string; time: string }>>([
     {
       role: 'trader',
-      text: 'Yo! I am the 24 dispatch knowledge assistant. Ask me anything about our rolling cargo cart inventory, 60-min delivery times, Manchester coverage, or Trader Pass membership.',
+      text: 'Yo! I am the 247 dispatch knowledge assistant. Ask me anything about our rolling cargo cart inventory, 60-min delivery times, Manchester coverage, or Trader Pass membership.',
       time: 'Now'
     }
   ]);
@@ -59,7 +59,7 @@ export const AskTraderScreen: React.FC<AskTraderScreenProps> = ({ isOpen, onClos
         ...prev,
         {
           role: 'trader',
-          text: '24 is Manchester’s 24/7/365 bicycle-and-cargo-cart micro-store. We deliver essentials, first aid, and weather supplies in under 60 minutes.',
+          text: '247 is Manchester’s 24/7/365 bicycle-and-cargo-cart micro-store. We deliver essentials, first aid, and weather supplies in under 60 minutes.',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -118,7 +118,7 @@ export const AskTraderScreen: React.FC<AskTraderScreenProps> = ({ isOpen, onClos
           ))}
           {loading && (
             <div className="flex items-center gap-2 text-xs text-sky-400 font-mono-code p-2 bg-stone-950/60 rounded-lg w-max">
-              <span className="animate-spin">⟳</span> Checking 24 dispatch knowledge...
+              <span className="animate-spin">⟳</span> Checking 247 dispatch knowledge...
             </div>
           )}
         </div>

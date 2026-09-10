@@ -119,7 +119,7 @@ const DEFAULT_FREE_SETTINGS: FreeEssentialSettings = {
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRole] = useState<UserRole>('CUSTOMER');
-  const [demoMode, setDemoMode] = useState<boolean>(true);
+  const [demoMode, setDemoMode] = useState<boolean>(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
@@ -382,7 +382,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     if (settings.service_status === 'OFFLINE' || settings.service_status === 'EMERGENCY_HOLD') {
-      throw new Error(`24 is currently ${settings.service_status}. Orders paused for rider safety.`);
+      throw new Error(`247 is currently ${settings.service_status}. Orders paused for rider safety.`);
     }
 
     const orderPayload = {
@@ -470,7 +470,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await api.resetDemoData();
     clearCart();
     await refreshData();
-    addToast('Demo Reset', '24 system reset to clean seed data.', 'info');
+    addToast('Demo Reset', '247 system reset to clean seed data.', 'info');
   };
 
   return (

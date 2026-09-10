@@ -1,4 +1,4 @@
-// 24 Manchester NH Route & Geocoding Utilities
+// 247 Manchester NH Route & Geocoding Utilities
 // Lightweight coordinate mapping, routing waypoints, and distance calculations
 
 export interface RouteWaypoint {
@@ -20,13 +20,13 @@ export interface DeliveryRoute {
   turnInstructions: { step: number; text: string; distance: string }[];
 }
 
-// 24 Base Hub - Elm St & Merrimack St, Downtown Manchester, NH
+// 247 Base Hub - Elm St & Merrimack St, Downtown Manchester, NH
 export const TRADER24_STORE_HUB: {
   name: string;
   address: string;
   coords: [number, number];
 } = {
-  name: '24 Base Hub',
+  name: '247 Base Hub',
   address: 'Elm St & Merrimack St, Downtown Manchester, NH 03101',
   coords: [42.9908, -71.4637]
 };
@@ -164,7 +164,7 @@ export function buildDeliveryRoute(
   const turnInstructions = [
     {
       step: 1,
-      text: 'Depart 24 Base Hub (Elm & Merrimack) heading towards delivery zone',
+      text: 'Depart 247 Base Hub (Elm & Merrimack) heading towards delivery zone',
       distance: '0.1 mi'
     },
     {

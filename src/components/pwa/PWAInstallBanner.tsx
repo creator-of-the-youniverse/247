@@ -176,7 +176,7 @@ export const PWAInstallBanner: React.FC = () => {
           <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="font-bold">24 is now installed on your device!</span>
+              <span className="font-bold">247 is now installed on your device!</span>
               <span className="hidden sm:inline text-emerald-400/80">• Standalone 24/7 mobile access enabled</span>
             </div>
             <button 
@@ -203,7 +203,7 @@ export const PWAInstallBanner: React.FC = () => {
       <section 
         id="pwa-install-banner" 
         role="region" 
-        aria-label="Install 24 Progressive Web App"
+        aria-label="Install 247 Progressive Web App"
         className="relative z-30 bg-stone-900 border-b border-amber-500/30 text-stone-100 shadow-xl"
       >
         {/* Subtle decorative top neon rule */}
@@ -219,7 +219,7 @@ export const PWAInstallBanner: React.FC = () => {
                 <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 p-0.5 shadow-md shadow-amber-500/10">
                   <div className="w-full h-full bg-stone-950 rounded-[10px] flex items-center justify-center">
                     <span className="font-display font-black text-amber-400 text-sm tracking-tighter">
-                      24
+              247
                     </span>
                   </div>
                 </div>
@@ -232,7 +232,7 @@ export const PWAInstallBanner: React.FC = () => {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-0.5">
                   <h2 className="font-display font-extrabold text-white text-xs sm:text-sm tracking-wide uppercase">
-                    Install 24 App
+                    Install 247 App
                   </h2>
                   <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-400 font-mono-code text-[10px] font-bold tracking-wider uppercase whitespace-nowrap">
                     {hasDirectPrompt ? '1-Tap Install' : isIOS ? 'iOS Safari Ready' : 'Standalone PWA'}
@@ -342,11 +342,11 @@ export const PWAInstallBanner: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-display font-black text-sm shadow">
-                  24
+              247
                 </div>
                 <div>
                   <h3 className="font-display font-extrabold text-base text-white uppercase tracking-wide">
-                    Install 24
+                    Install 247
                   </h3>
                   <p className="text-[11px] font-mono-code text-stone-400">
                     Add to iPhone or iPad Home Screen
@@ -404,7 +404,7 @@ export const PWAInstallBanner: React.FC = () => {
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 inline" />
                   </p>
                   <p className="text-stone-400 text-[11px] leading-relaxed">
-                    Tap &quot;Add&quot; in the top-right corner. 24 will appear right on your home screen ready to launch in standalone mode!
+                    Tap &quot;Add&quot; in the top-right corner. 247 will appear right on your home screen ready to launch in standalone mode!
                   </p>
                 </div>
               </div>

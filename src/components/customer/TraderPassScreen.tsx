@@ -48,7 +48,7 @@ export const TraderPassScreen: React.FC = () => {
           <span className="text-[10px] font-mono-code font-bold bg-amber-500 text-stone-950 px-2 py-0.5 rounded uppercase">
             MEMBERSHIP
           </span>
-          <span className="text-xs font-mono-code text-stone-400">24 CLUB</span>
+          <span className="text-xs font-mono-code text-stone-400">247 CLUB</span>
         </div>
         <h1 className="font-display font-black text-3xl text-white uppercase tracking-wider mt-1">
           TRADER PASS

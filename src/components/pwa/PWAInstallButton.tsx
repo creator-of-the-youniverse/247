@@ -51,7 +51,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
           className={`flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-stone-950 font-display font-extrabold text-sm uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-95 transition-all ${className}`}
         >
           <Download className="w-4 h-4 stroke-[2.5]" />
-          <span>Install 24 Mobile App</span>
+          <span>Install 247 Mobile App</span>
         </button>
       );
     }
@@ -61,7 +61,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         <button
           id="pwa-compact-install-btn"
           onClick={handleClick}
-          title="Install 24 Web App"
+          title="Install 247 Web App"
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-400 text-xs font-mono-code font-bold transition-colors ${className}`}
         >
           <Download className="w-3.5 h-3.5" />
@@ -82,7 +82,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
               <Download className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <div className="text-xs font-bold text-white font-mono-code uppercase">Install 24 App</div>
+              <div className="text-xs font-bold text-white font-mono-code uppercase">Install 247 App</div>
               <div className="text-[11px] text-stone-400">Add to home screen for 1-tap ordering</div>
             </div>
           </div>
@@ -96,7 +96,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
       <button
         id="pwa-header-install-btn"
         onClick={handleClick}
-        title="Install 24 Progressive Web App"
+        title="Install 247 Progressive Web App"
         className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-400 font-mono-code font-bold transition-colors active:scale-95 ${className}`}
       >
         <Download className="w-3.5 h-3.5 text-amber-400" />
@@ -114,7 +114,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
       {installedNotice && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-stone-900 border border-amber-500/60 text-stone-100 px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 font-mono-code text-xs">
           <CheckCircle2 className="w-4 h-4 text-amber-400" />
-          <span>24 installed successfully! Available on your Home Screen.</span>
+          <span>247 installed successfully! Available on your Home Screen.</span>
         </div>
       )}
 
@@ -132,10 +132,10 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-stone-800">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-amber-500 text-stone-950 flex items-center justify-center font-black text-sm">
-                  24
+              247
                 </div>
                 <div>
-                  <h3 className="font-display font-extrabold text-base text-white uppercase">Install 24</h3>
+                  <h3 className="font-display font-extrabold text-base text-white uppercase">Install 247</h3>
                   <p className="text-[11px] font-mono-code text-stone-400">Manchester 24/7 Mobile Micro-Store</p>
                 </div>
               </div>
@@ -150,7 +150,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
             {isIOS ? (
               <div className="space-y-3 text-xs leading-relaxed">
                 <p className="text-stone-300">
-                  Install 24 directly onto your iPhone or iPad home screen for full-screen access and offline emergency support:
+                  Install 247 directly onto your iPhone or iPad home screen for full-screen access and offline emergency support:
                 </p>
 
                 <div className="p-3 bg-stone-950 rounded-xl border border-stone-800/80 space-y-2.5 font-mono-code">
@@ -184,12 +184,12 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
             ) : (
               <div className="space-y-3 text-xs leading-relaxed">
                 <p className="text-stone-300">
-                  To install 24 on your device:
+                  To install 247 on your device:
                 </p>
                 <div className="p-3 bg-stone-950 rounded-xl border border-stone-800/80 space-y-2 font-mono-code">
                   <div className="flex items-start gap-2">
                     <Smartphone className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <span>Open browser menu (three dots icon <strong>⋮</strong>) and click <strong>&quot;Install 24&quot;</strong> or <strong>&quot;Add to Home Screen&quot;</strong>.</span>
+                    <span>Open browser menu (three dots icon <strong>⋮</strong>) and click <strong>&quot;Install 247&quot;</strong> or <strong>&quot;Add to Home Screen&quot;</strong>.</span>
                   </div>
                 </div>
               </div>

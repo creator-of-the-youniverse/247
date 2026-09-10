@@ -32,73 +32,73 @@ export async function ensureFirestoreSeeded(forceReset = false) {
     // 1. Products
     for (const prod of INITIAL_PRODUCTS) {
       const ref = db.collection('products').doc(prod.id);
-      batch.set(ref, prod);
+      batch.set(ref, { ...prod, demo_data: true });
     }
 
     // 2. Service Zones
     for (const zone of INITIAL_SERVICE_ZONES) {
       const ref = db.collection('serviceZones').doc(zone.id);
-      batch.set(ref, zone);
+      batch.set(ref, { ...zone, demo_data: true });
     }
 
     // 3. Resources
     for (const res of INITIAL_RESOURCES) {
       const ref = db.collection('resources').doc(res.id);
-      batch.set(ref, res);
+      batch.set(ref, { ...res, demo_data: true });
     }
 
     // 4. Riders
     for (const rider of INITIAL_RIDERS) {
       const ref = db.collection('riders').doc(rider.id);
-      batch.set(ref, rider);
+      batch.set(ref, { ...rider, demo_data: true });
     }
 
     // 5. Settings
     const settingsRef = db.collection('settings').doc('global');
-    batch.set(settingsRef, INITIAL_SETTINGS);
+    batch.set(settingsRef, { ...INITIAL_SETTINGS, demo_data: true });
 
     // 6. Free Essential Settings
     const freeSettingsRef = db.collection('freeSettings').doc('global');
-    batch.set(freeSettingsRef, INITIAL_FREE_SETTINGS);
+    batch.set(freeSettingsRef, { ...INITIAL_FREE_SETTINGS, demo_data: true });
 
     // 6b. Economics Configuration & Economic Inputs
     const economicsRef = db.collection('economicsConfig').doc('global');
-    batch.set(economicsRef, DEFAULT_ECONOMICS_CONFIG);
+    batch.set(economicsRef, { ...DEFAULT_ECONOMICS_CONFIG, demo_data: true });
 
     // 7. Subscribers
     for (const sub of INITIAL_SUBSCRIBERS) {
       const ref = db.collection('traderPassSubscriptions').doc(sub.id);
-      batch.set(ref, sub);
+      batch.set(ref, { ...sub, demo_data: true });
     }
 
     // 8. Orders
     for (const order of INITIAL_ORDERS) {
       const ref = db.collection('orders').doc(order.id);
-      batch.set(ref, order);
+      batch.set(ref, { ...order, demo_data: true });
     }
 
     // 9. Free Distributions
     for (const dist of INITIAL_FREE_DISTRIBUTIONS) {
       const ref = db.collection('freeDistributions').doc(dist.id);
-      batch.set(ref, dist);
+      batch.set(ref, { ...dist, demo_data: true });
     }
 
     // 10. Sponsors
     for (const sp of INITIAL_SPONSORS) {
       const ref = db.collection('sponsors').doc(sp.id);
-      batch.set(ref, sp);
+      batch.set(ref, { ...sp, demo_data: true });
     }
 
     // 11. Inventory Transactions
     for (const tx of INITIAL_INVENTORY_TRANSACTIONS) {
       const ref = db.collection('inventoryTransactions').doc(tx.id);
-      batch.set(ref, tx);
+      batch.set(ref, { ...tx, demo_data: true });
     }
 
     // 12. Audit Logs
     for (const log of INITIAL_AUDIT_LOGS) {
       const ref = db.collection('auditLogs').doc(log.id);
-      batch.set(ref, log);
+      batch.set(ref, { ...log, demo_data: true });
     }
 
     // 13. Pre-seed Demo Users
@@ -134,7 +134,7 @@ export async function ensureFirestoreSeeded(forceReset = false) {
 
     for (const u of demoUsers) {
       const ref = db.collection('users').doc(u.id);
-      batch.set(ref, u);
+      batch.set(ref, { ...u, demo_data: true });
     }
 
     await batch.commit();

@@ -238,7 +238,7 @@ export const SendTraderScreen: React.FC<SendTraderScreenProps> = ({ isOpen, onCl
 
           {/* Legal Compliance Disclaimer */}
           <div className="text-[10px] font-mono-code text-stone-500 border-t border-stone-800 pt-2 leading-relaxed">
-            24 is a mobile micro-store retail delivery service. We do not provide medical diagnosis, emergency medical transport, or controlled substances.
+            247 is a mobile micro-store retail delivery service. We do not provide medical diagnosis, emergency medical transport, or controlled substances.
           </div>
         </div>
 

@@ -58,9 +58,9 @@ function createPng(width, height, getPixel) {
   return Buffer.concat([signature, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
 }
 
-// Draw crisp T24 glyphs on a grid
+// Draw crisp 247 glyphs on a grid
 // 7x7 grid for T, 2, 4
-const GLYPH_T = [
+const GLYPH_7 = [
   "1111111",
   "0001000",
   "0001000",
@@ -103,24 +103,25 @@ function renderIcon(size, isMaskable = false) {
   const scale = size / 100;
 
   // Colors
-  const bgDark = [12, 10, 9, 255];       // #0c0a09
-  const stoneBorder = [68, 64, 60, 255]; // #44403c
-  const amber = [245, 158, 11, 255];     // #f59e0b
-  const amberDark = [217, 119, 6, 255];  // #d97706
-  const charcoal = [28, 25, 23, 255];    // #1c1917
+  const bgDark = [12, 10, 9, 255];
+  const stoneBorder = [68, 64, 60, 255];
+  const amber = [245, 158, 11, 255];
+  const amberDark = [217, 119, 6, 255];
+  const charcoal = [28, 25, 23, 255];
 
   const circleRadius = isMaskable ? 28 * scale : 34 * scale;
   const ringRadius = isMaskable ? 33 * scale : 39 * scale;
 
   return createPng(size, size, (x, y) => {
-    // If not maskable, rounded corner squircle outer boundary
     if (!isMaskable) {
       const cornerR = 20 * scale;
       const dx = Math.abs(x - cx);
       const dy = Math.abs(y - cy);
       const hw = 46 * scale;
       const hh = 46 * scale;
+
       if (dx > hw || dy > hh) return [0, 0, 0, 0];
+
       if (dx > hw - cornerR && dy > hh - cornerR) {
         const cdx = dx - (hw - cornerR);
         const cdy = dy - (hh - cornerR);
@@ -132,10 +133,7 @@ function renderIcon(size, isMaskable = false) {
 
     const distFromCenter = Math.hypot(x - cx, y - cy);
 
-    // Inner Amber Circle
     if (distFromCenter <= circleRadius) {
-      // Check if inside T24 text
-      // Text centered vertically around cy, spanning from x = cx - 22*scale to cx + 22*scale
       const textH = 22 * scale;
       const textTop = cy - textH / 2;
       const textBottom = cy + textH / 2;
@@ -143,32 +141,31 @@ function renderIcon(size, isMaskable = false) {
       if (y >= textTop && y <= textBottom) {
         const ny = ((y - textTop) / textH) * 7;
 
-        // T: span cx - 20*scale to cx - 8*scale
-        const tLeft = cx - 21 * scale;
-        const tRight = cx - 7 * scale;
-        if (x >= tLeft && x <= tRight) {
-          const nx = ((x - tLeft) / (tRight - tLeft)) * 7;
-          if (isInsideGlyph(nx, ny, GLYPH_T)) return bgDark;
-        }
-
-        // 2: span cx - 6*scale to cx + 6*scale
-        const twoLeft = cx - 6.5 * scale;
-        const twoRight = cx + 6.5 * scale;
+        // 2 — left digit
+        const twoLeft = cx - 21 * scale;
+        const twoRight = cx - 7 * scale;
         if (x >= twoLeft && x <= twoRight) {
           const nx = ((x - twoLeft) / (twoRight - twoLeft)) * 7;
           if (isInsideGlyph(nx, ny, GLYPH_2)) return bgDark;
         }
 
-        // 4: span cx + 8*scale to cx + 21*scale
-        const fourLeft = cx + 7.5 * scale;
-        const fourRight = cx + 21.5 * scale;
+        // 4 — center digit
+        const fourLeft = cx - 6.5 * scale;
+        const fourRight = cx + 6.5 * scale;
         if (x >= fourLeft && x <= fourRight) {
           const nx = ((x - fourLeft) / (fourRight - fourLeft)) * 7;
           if (isInsideGlyph(nx, ny, GLYPH_4)) return bgDark;
         }
+
+        // 7 — right digit
+        const sevenLeft = cx + 7.5 * scale;
+        const sevenRight = cx + 21.5 * scale;
+        if (x >= sevenLeft && x <= sevenRight) {
+          const nx = ((x - sevenLeft) / (sevenRight - sevenLeft)) * 7;
+          if (isInsideGlyph(nx, ny, GLYPH_7)) return bgDark;
+        }
       }
 
-      // Small subtle bike pedal / gear center dot below text
       const dotY = cy + 16 * scale;
       if (Math.hypot(x - cx, y - dotY) <= 2 * scale) {
         return bgDark;
@@ -177,20 +174,23 @@ function renderIcon(size, isMaskable = false) {
       return amber;
     }
 
-    // Outer Gear Ring
     if (distFromCenter > circleRadius && distFromCenter <= ringRadius) {
-      // Cog pattern / dashed teeth
       const angle = Math.atan2(y - cy, x - cx);
       const cogCount = 16;
       const cogPhase = (angle + Math.PI) / (2 * Math.PI) * cogCount;
       const frac = cogPhase - Math.floor(cogPhase);
-      if (distFromCenter > circleRadius + (ringRadius - circleRadius) * 0.4 && frac > 0.45) {
+
+      if (
+        distFromCenter >
+        circleRadius + (ringRadius - circleRadius) * 0.4 &&
+        frac > 0.45
+      ) {
         return charcoal;
       }
+
       return stoneBorder;
     }
 
-    // Background filler
     return bgDark;
   });
 }

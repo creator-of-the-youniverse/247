@@ -7,8 +7,8 @@
   <circle cx="256" cy="256" r="160" fill="#f59e0b" />
   <!-- Cargo Bike / Wheel Spoke Accent Lines -->
   <circle cx="256" cy="256" r="140" fill="none" stroke="#0c0a09" stroke-width="6" stroke-dasharray="14 10" opacity="0.35" />
-  <!-- T24 Bold Text -->
-  <text x="256" y="278" font-family="'Chakra Petch', 'Arial Black', sans-serif" font-weight="900" font-size="140" fill="#0c0a09" text-anchor="middle" letter-spacing="-4">T24</text>
+  <!-- 247 Bold Text -->
+  <text x="256" y="278" font-family="'Chakra Petch', 'Arial Black', sans-serif" font-weight="900" font-size="140" fill="#0c0a09" text-anchor="middle" letter-spacing="-4">247</text>
   <!-- Micro subtext -->
   <rect x="180" y="318" width="152" height="28" rx="6" fill="#0c0a09" />
   <text x="256" y="338" font-family="'JetBrains Mono', monospace" font-weight="800" font-size="16" fill="#f59e0b" text-anchor="middle" letter-spacing="3">MANCHESTER</text>

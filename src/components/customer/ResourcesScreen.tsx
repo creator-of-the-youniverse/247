@@ -83,7 +83,7 @@ export const ResourcesScreen: React.FC = () => {
             Emergency & Crisis Access
           </span>
           <p className="leading-relaxed text-stone-300">
-            For acute life threats, call <strong>911</strong>. For suicide & crisis support, call <strong>988</strong>. 24 connects neighbors with free public community infrastructure.
+            For acute life threats, call <strong>911</strong>. For suicide & crisis support, call <strong>988</strong>. 247 connects neighbors with free public community infrastructure.
           </p>
         </div>
       </div>

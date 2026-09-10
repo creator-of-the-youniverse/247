@@ -50,7 +50,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           return;
         }
         await register(email, password, displayName, phone);
-        addToast('Welcome to 24', `Account registered for ${displayName}`, 'success');
+        addToast('Welcome to 247', `Account registered for ${displayName}`, 'success');
       } else {
         if (!email || !password) {
           setErrorMsg('Email and password required.');
@@ -135,7 +135,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </div>
           <div>
             <h2 className="text-xl font-bold text-stone-100">
-              {isRegister ? 'Create 24 Account' : 'Sign In'}
+              {isRegister ? 'Create 247 Account' : 'Sign In'}
             </h2>
             <p className="text-xs text-stone-400">
               {isRegister ? 'Register for order tracking & member perks' : 'Access your profile, orders & cockpit'}
@@ -342,7 +342,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         </form>
 
         <div className="mt-4 pt-3.5 border-t border-stone-800 flex items-center justify-between text-xs text-stone-400">
-          <span>{isRegister ? 'Already have an account?' : 'New to 24?'}</span>
+          <span>{isRegister ? 'Already have an account?' : 'New to 247?'}</span>
           <button
             id="auth-toggle-mode-btn"
             type="button"

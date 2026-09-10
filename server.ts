@@ -231,7 +231,7 @@ async function startServer() {
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
-      service: '24 Mobile OS',
+      service: '247 Mobile OS',
       persistence: 'Firestore',
       auth: 'Firebase Auth',
       time: new Date().toISOString()
@@ -1458,7 +1458,7 @@ async function startServer() {
     try {
       await ensureFirestoreSeeded(true);
       await addAuditLog(req.user?.email || 'Admin', 'DEMO_DATA_RESET', 'All Firestore collections re-seeded with demo baseline');
-      res.json({ success: true, message: '24 database cleanly restored with demo dataset.' });
+      res.json({ success: true, message: '247 database cleanly restored with demo dataset.' });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -1522,8 +1522,8 @@ async function startServer() {
         });
       }
 
-      const systemPrompt = `You are "SEND TRADER", the intelligent order assistant for 24 in Manchester, New Hampshire.
-24 is a 24/7/365 bicycle-and-cargo-cart mobile retail and essential-supply delivery service.
+      const systemPrompt = `You are "SEND TRADER", the intelligent order assistant for 247 in Manchester, New Hampshire.
+247 is a 24/7/365 bicycle-and-cargo-cart mobile retail and essential-supply delivery service.
 Rules:
 1. Interpret the user's natural language request.
 2. Select 1 to 5 EXACT matching product IDs strictly from the provided APPROVED product catalog.
@@ -1602,7 +1602,7 @@ Rules:
       const activeProducts = prodSnap.docs.map(d => `${(d.data() as Product).name} ($${(d.data() as Product).retail_price})`);
 
       const storeContext = {
-        service_name: '24',
+        service_name: '247',
         tagline: 'NEED SOMETHING? TRADER ROLLS.',
         city: 'Manchester, New Hampshire',
         delivery_speed: 'Target delivery ≤60 minutes (often 25-40 min)',
@@ -1619,7 +1619,7 @@ Rules:
       const ai = getGeminiClient();
       if (!ai) {
         const q = question.toLowerCase();
-        let ans = '24 is Manchester’s 24/7/365 bicycle-and-cargo-cart micro-store delivery service. We bring water, first aid, hygiene, cold weather gear, and essentials in ≤60 minutes.';
+        let ans = '247 is Manchester’s 24/7/365 bicycle-and-cargo-cart micro-store delivery service. We bring water, first aid, hygiene, cold weather gear, and essentials in ≤60 minutes.';
 
         if (q.includes('pass') || q.includes('subscription') || q.includes('cost') || q.includes('20')) {
           ans = 'Trader Pass is $20/month. You receive $20 in monthly Essential Credit to spend on eligible goods, 100% free standard delivery on all orders, priority rider dispatch, member discount pricing, and monthly care-pack eligibility.';
@@ -1637,7 +1637,7 @@ Rules:
       const response = await generateGeminiContent(ai, {
         contents: `User question: "${question}"\n\nCurrent Store Knowledge:\n${JSON.stringify(storeContext, null, 2)}`,
         config: {
-          systemInstruction: `You are "ASK TRADER", the helpful assistant for 24 in Manchester, NH.
+          systemInstruction: `You are "ASK TRADER", the helpful assistant for 247 in Manchester, NH.
 Answer clearly, concisely, and honestly using only current store data.
 Tone: Street-level, reliable, respectful, concise.
 Do not invent product inventory or legal claims.
@@ -1645,11 +1645,11 @@ If asked about emergency medical care, direct them to emergency services (911 / 
         }
       });
 
-      res.json({ answer: response.text?.trim() || '24 is rolling 24/7 across Manchester, NH. Delivery in ≤60 minutes.' });
+      res.json({ answer: response.text?.trim() || '247 is rolling 24/7 across Manchester, NH. Delivery in ≤60 minutes.' });
     } catch (err: any) {
       console.error('Ask Trader AI error:', err);
       res.json({
-        answer: '24 is Manchester’s 24/7/365 bicycle-and-cargo-cart micro-store. We deliver essentials, first aid, weather supplies, and food in under 60 minutes.'
+        answer: '247 is Manchester’s 24/7/365 bicycle-and-cargo-cart micro-store. We deliver essentials, first aid, weather supplies, and food in under 60 minutes.'
       });
     }
   });
@@ -1689,7 +1689,7 @@ If asked about emergency medical care, direct them to emergency services (911 / 
   }
 
   const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`24 Mobile Micro-Store Operating System live on http://0.0.0.0:${PORT}`);
+    console.log(`247 Mobile Micro-Store Operating System live on http://0.0.0.0:${PORT}`);
   });
 
   const shutdown = () => {
@@ -1703,6 +1703,6 @@ If asked about emergency medical care, direct them to emergency services (911 / 
 }
 
 startServer().catch((err) => {
-  console.error('Fatal error starting 24 server:', err);
+  console.error('Fatal error starting 247 server:', err);
   process.exit(1);
 });

@@ -35,7 +35,7 @@ export const FreeEssentialEconomicsView: React.FC<FreeEssentialEconomicsViewProp
           Free Essentials Program Economics & Community Impact
         </h2>
         <p className="text-sm text-neutral-500 mt-1">
-          Tracking the vital difference between <strong>Retail Community Impact Value</strong> (value delivered to residents) and <strong>Wholesale Business COGS</strong> (actual cost to 24).
+          Tracking the vital difference between <strong>Retail Community Impact Value</strong> (value delivered to residents) and <strong>Wholesale Business COGS</strong> (actual cost to 247).
         </p>
       </div>
 

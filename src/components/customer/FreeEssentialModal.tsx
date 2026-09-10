@@ -54,7 +54,7 @@ export const FreeEssentialModal: React.FC<FreeEssentialModalProps> = ({ isOpen, 
         <div className="p-3 bg-amber-500/10 border-b border-amber-500/20 text-xs text-stone-300 flex items-start gap-2">
           <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <p>
-            Choose 1 eligible essential item from our cargo loadout. Funded by 24 and the Manchester Community Supply Fund.
+            Choose 1 eligible essential item from our cargo loadout. Funded by 247 and the Manchester Community Supply Fund.
           </p>
         </div>
 

@@ -276,7 +276,7 @@ async function handleNavigationRequest(request) {
          <head>
            <meta charset="UTF-8"/>
            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-           <title>24 — Offline</title>
+           <title>247 — Offline</title>
            <style>
              body { margin:0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; background:#0c0a09; color:#f5f5f4; text-align:center; padding:1.5rem; }
              .card { max-width: 400px; padding: 2rem; background: #1c1917; border: 1px solid #44403c; border-radius: 1rem; }
@@ -287,7 +287,7 @@ async function handleNavigationRequest(request) {
          </head>
          <body>
            <div class="card">
-             <h1>24</h1>
+             <h1>247</h1>
              <p>You appear to be offline or on an intermittent connection. Please check your signal and reload.</p>
              <button onclick="window.location.reload()">Retry Connection</button>
            </div>
