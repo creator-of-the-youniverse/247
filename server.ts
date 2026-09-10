@@ -1,6 +1,5 @@
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { getFirestoreDb } from './server/db.js';
 import { authenticateUser, requireAuth, requireRole, AuthenticatedRequest } from './server/auth.js';
@@ -1675,6 +1674,7 @@ If asked about emergency medical care, direct them to emergency services (911 / 
 
   // VITE MIDDLEWARE (Development) or STATIC SERVE (Production)
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa'
