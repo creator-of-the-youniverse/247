@@ -327,7 +327,9 @@ export interface BusinessMetrics {
   membership_churn_rate_percent: number;
   customer_lifetime_value: number;
   break_even_orders_month: number;
+  monthly_orders_required?: number;
   break_even_orders_day: number;
+  daily_orders_required?: number;
   community_fund_balance: number;
   community_funded_items_month: number;
 }
@@ -668,8 +670,10 @@ export interface ScenarioResults {
   estimated_operating_result: number;
   average_contribution_per_order: number;
   break_even_orders_month: number;
+  monthly_orders_required?: number;
   break_even_orders_monthly?: number | null;
   break_even_orders_day: number;
+  daily_orders_required?: number;
   break_even_orders_daily?: number | null;
   break_even_members: number;
   is_sustainable: boolean;
