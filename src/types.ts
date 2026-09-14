@@ -128,12 +128,72 @@ export interface FreeEssentialSettings {
 
 export type SubscriptionStatus = 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'PAUSED';
 
+export type PassTier = 'TRADER' | 'TESLA' | 'COMBO';
+
+export type BatteryCapacity = '2000' | '5000' | '10000' | '20000';
+
+export interface BatteryExchangeRecord {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone?: string;
+  capacity: BatteryCapacity;
+  exchange_type: 'DELIVERY_DISPATCH' | 'STREET_SWAP' | 'HUB_WALKUP';
+  status: 'REQUESTED' | 'DISPATCHED' | 'COMPLETED' | 'CANCELLED';
+  created_at: string;
+  completed_at?: string;
+  delivery_address?: string;
+  rider_id?: string;
+  rider_name?: string;
+  pack_serial?: string;
+  notes?: string;
+}
+
+export interface BatteryHub {
+  id: string;
+  name: string;
+  code: string;
+  address: string;
+  zone: string;
+  distance_miles: number;
+  travel_time_bike_min: number;
+  is_open_247: boolean;
+  coords: [number, number];
+  available_packs: Record<BatteryCapacity, number>;
+  charging_bays_total: number;
+  charging_bays_active: number;
+  total_available: number;
+  locker_available: boolean;
+  bay_voltage_status: 'OPTIMAL' | 'RECHARGING' | 'CALIBRATING';
+}
+
+export interface BatteryReservation {
+  id: string;
+  reservation_code: string;
+  hub_id: string;
+  hub_name: string;
+  hub_address: string;
+  capacity: BatteryCapacity;
+  customer_id: string;
+  customer_name: string;
+  customer_phone?: string;
+  status: 'ACTIVE' | 'COLLECTED' | 'EXPIRED' | 'CANCELLED';
+  created_at: string;
+  expires_at: string;
+  hold_duration_minutes: number;
+  pickup_mode: 'HUB_WALKUP' | 'COURIER_DISPATCH';
+  locker_bay_number?: number;
+  pack_serial?: string;
+  notes?: string;
+}
+
 export interface TraderPassSubscription {
   id: string;
   customer_id: string;
   customer_name: string;
   customer_email: string;
   subscription_status: SubscriptionStatus;
+  pass_type?: PassTier;
   price_monthly: number;
   start_date: string;
   renewal_date: string;
@@ -143,6 +203,8 @@ export interface TraderPassSubscription {
   credit_remaining: number;
   member_savings_total: number;
   member_orders_count: number;
+  battery_exchanges_count?: number;
+  registered_battery_capacities?: BatteryCapacity[];
 }
 
 export type OrderState = 
@@ -506,6 +568,10 @@ export interface TraderPassEconomics {
   total_subscribers: number;
   active_subscribers: number;
   monthly_subscription_revenue: number;
+  trader_tier_count?: number;
+  tesla_tier_count?: number;
+  combo_tier_count?: number;
+  total_battery_exchanges?: number;
   total_essential_credit_issued: number;
   total_essential_credit_redeemed: number;
   total_essential_credit_remaining: number;
@@ -688,3 +754,35 @@ export interface AdminAlert {
   action_hint?: string;
   related_entity_id?: string;
 }
+
+export type LocationParticipantRole = 'RIDER' | 'CUSTOMER' | 'ADMIN';
+
+export interface LiveLocation {
+  id: string;
+  role: LocationParticipantRole;
+  name: string;
+  latitude: number;
+  longitude: number;
+  heading?: number;
+  speed_mph?: number;
+  accuracy_meters?: number;
+  altitude?: number;
+  battery_level?: number;
+  status?: string; // 'ONLINE' | 'DELIVERING' | 'WAITING' | 'OFFLINE'
+  order_id?: string;
+  order_number?: string;
+  destination_address?: string;
+  destination_lat?: number;
+  destination_lng?: number;
+  updated_at: string;
+  is_real_device?: boolean;
+}
+
+export interface LiveLocationMessage {
+  type: 'LOCATION_UPDATE' | 'LOCATION_BROADCAST' | 'FULL_SYNC' | 'PING' | 'PONG' | 'DISPATCH_PING' | 'REQUEST_SYNC';
+  payload?: any;
+  locations?: Record<string, LiveLocation>;
+  location?: LiveLocation;
+  timestamp: string;
+}
+

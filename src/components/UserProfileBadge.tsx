@@ -10,11 +10,13 @@ import {
   ShieldCheck, 
   Bike, 
   ShoppingBag,
-  User as UserIcon
+  User as UserIcon,
+  Compass
 } from 'lucide-react';
 
 interface UserProfileBadgeProps {
   onOpenAuthModal: () => void;
+  onOpenOnboarding?: () => void;
 }
 
 export function getInitials(name?: string, email?: string): string {
@@ -57,7 +59,10 @@ export function formatAbbreviatedName(name?: string, email?: string): string {
   return 'User';
 }
 
-export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({ onOpenAuthModal }) => {
+export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({ 
+  onOpenAuthModal, 
+  onOpenOnboarding 
+}) => {
   const { currentUser, profile, role: authRole, logout, isAuthenticated } = useAuth();
   const { role: activeInterfaceRole, setRole: setInterfaceRole, activePass } = useStore();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -306,6 +311,20 @@ export const UserProfileBadge: React.FC<UserProfileBadgeProps> = ({ onOpenAuthMo
 
               {/* Menu Actions */}
               <div className="space-y-1 pt-1 border-t border-stone-800">
+                {onOpenOnboarding && (
+                  <button
+                    id="profile-onboarding-btn"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onOpenOnboarding();
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-left text-xs font-medium text-amber-400 hover:text-amber-300 hover:bg-stone-800 flex items-center gap-2.5 transition-colors"
+                  >
+                    <Compass className="w-4 h-4 text-amber-400" />
+                    <span>Role Tour & Onboarding</span>
+                  </button>
+                )}
+
                 <button
                   id="profile-manage-btn"
                   onClick={() => {

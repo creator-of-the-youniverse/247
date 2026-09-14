@@ -297,7 +297,17 @@ export function calculateTraderPassEconomics(
   config: BusinessEconomicsConfig = DEFAULT_ECONOMICS_CONFIG
 ): TraderPassEconomics {
   const activeSubs = subscriptions.filter(s => s.subscription_status === 'ACTIVE');
-  const monthlySubscriptionRevenue = activeSubs.length * config.monthly_trader_pass_price;
+  
+  // Calculate revenue dynamically based on sub tier (Trader: $20, Tesla: $20, Combo: $30)
+  const monthlySubscriptionRevenue = activeSubs.reduce((sum, s) => {
+    const price = s.price_monthly || (s.pass_type === 'COMBO' ? 30 : 20);
+    return sum + price;
+  }, 0);
+
+  const traderTierCount = activeSubs.filter(s => !s.pass_type || s.pass_type === 'TRADER').length;
+  const teslaTierCount = activeSubs.filter(s => s.pass_type === 'TESLA').length;
+  const comboTierCount = activeSubs.filter(s => s.pass_type === 'COMBO').length;
+  const totalBatteryExchanges = subscriptions.reduce((sum, s) => sum + (s.battery_exchanges_count || 0), 0);
 
   let totalIssued = 0;
   let totalRedeemed = 0;
@@ -308,8 +318,10 @@ export function calculateTraderPassEconomics(
   const averageWholesaleCostFactor = 0.45; // 45% wholesale cost factor
 
   const memberSummaries: MemberEconomicsSummary[] = subscriptions.map(sub => {
-    const issued = sub.monthly_credit || config.monthly_essential_credit;
-    const redeemed = sub.credit_used || 0;
+    const isTeslaOnly = sub.pass_type === 'TESLA';
+    const subPrice = sub.price_monthly || (sub.pass_type === 'COMBO' ? 30 : 20);
+    const issued = isTeslaOnly ? 0 : (sub.monthly_credit !== undefined ? sub.monthly_credit : config.monthly_essential_credit);
+    const redeemed = isTeslaOnly ? 0 : (sub.credit_used || 0);
     const remaining = Math.max(0, issued - redeemed);
     const estimatedWholesaleLiability = remaining * averageWholesaleCostFactor;
 
@@ -328,7 +340,7 @@ export function calculateTraderPassEconomics(
     const discountSubsidy = discountsProvided;
 
     // Net Membership Contribution: Subscription Price - Wholesale Cost of Redeemed Credit - Delivery Subsidy
-    const estimatedContribution = config.monthly_trader_pass_price - redeemedWholesaleCost - deliverySubsidy;
+    const estimatedContribution = subPrice - redeemedWholesaleCost - deliverySubsidy;
 
     totalIssued += issued;
     totalRedeemed += redeemed;
@@ -342,7 +354,7 @@ export function calculateTraderPassEconomics(
       customer_name: sub.customer_name,
       customer_email: sub.customer_email,
       subscription_status: sub.subscription_status,
-      monthly_subscription_price: config.monthly_trader_pass_price,
+      monthly_subscription_price: subPrice,
       essential_credit_issued: Number(issued.toFixed(2)),
       essential_credit_redeemed: Number(redeemed.toFixed(2)),
       essential_credit_remaining: Number(remaining.toFixed(2)),
@@ -368,6 +380,10 @@ export function calculateTraderPassEconomics(
     total_subscribers: subscriptions.length,
     active_subscribers: activeSubs.length,
     monthly_subscription_revenue: Number(monthlySubscriptionRevenue.toFixed(2)),
+    trader_tier_count: traderTierCount,
+    tesla_tier_count: teslaTierCount,
+    combo_tier_count: comboTierCount,
+    total_battery_exchanges: totalBatteryExchanges,
     total_essential_credit_issued: Number(totalIssued.toFixed(2)),
     total_essential_credit_redeemed: Number(totalRedeemed.toFixed(2)),
     total_essential_credit_remaining: Number(totalRemaining.toFixed(2)),

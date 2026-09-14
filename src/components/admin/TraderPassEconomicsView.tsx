@@ -112,6 +112,43 @@ export const TraderPassEconomicsView: React.FC<TraderPassEconomicsViewProps> = (
         </div>
       </div>
 
+      {/* Pass Tier Mix & Battery Network Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
+          <div className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Trader Pass ($20/mo)</div>
+          <div className="mt-1 text-2xl font-bold font-mono text-amber-600">
+            {passEconomics.trader_pass_count || 0}
+          </div>
+          <div className="text-[11px] text-neutral-500 mt-0.5">$20 credit + waived delivery</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
+          <div className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Tesla Pass ($20/mo)</div>
+          <div className="mt-1 text-2xl font-bold font-mono text-cyan-600">
+            {passEconomics.tesla_pass_count || 0}
+          </div>
+          <div className="text-[11px] text-neutral-500 mt-0.5">2k-20k mAh battery hot-swaps</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
+          <div className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Combined Pass ($30/mo)</div>
+          <div className="mt-1 text-2xl font-bold font-mono text-purple-600">
+            {passEconomics.combo_pass_count || 0}
+          </div>
+          <div className="text-[11px] text-neutral-500 mt-0.5">Both Trader & Tesla bundled</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
+          <div className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Battery Swaps Completed</div>
+          <div className="mt-1 text-2xl font-bold font-mono text-emerald-600">
+            {passEconomics.battery_exchanges_monthly || 0}
+          </div>
+          <div className="text-[11px] text-neutral-500 mt-0.5">
+            ${(passEconomics.battery_exchange_cost || 0).toFixed(2)} recharge & fulfillment cost
+          </div>
+        </div>
+      </div>
+
       {/* Credit Liability and Outstanding Obligations Card */}
       <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between">

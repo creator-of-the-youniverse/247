@@ -1,7 +1,7 @@
-// 24 Progressive Web App Service Worker
+// 247 Progressive Web App Service Worker
 // Production-grade Service Worker with Stale-While-Revalidate strategy for offline shell & static assets
 
-const CACHE_VERSION = 'trader24-v6';
+const CACHE_VERSION = '247-v7';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;

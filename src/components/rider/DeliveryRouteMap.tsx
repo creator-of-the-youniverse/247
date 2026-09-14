@@ -3,11 +3,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Order } from '../../types';
 import { 
-  TRADER24_STORE_HUB, 
+  HUB_247_STORE, 
   resolveManchesterCoordinates, 
   buildDeliveryRoute, 
   calculateDistanceMiles,
-  DeliveryRoute 
+  DeliveryRoute,
+  CARTO_TILE_URLS,
+  CARTO_ATTRIBUTION,
+  OSM_ATTRIBUTION
 } from '../../utils/mapRouteUtils';
 import { 
   Bike, 
@@ -27,8 +30,12 @@ import {
   ChevronDown, 
   ChevronUp,
   Zap,
-  Sparkles
+  Sparkles,
+  Radio,
+  Battery,
+  Crosshair
 } from 'lucide-react';
+import { useLiveLocations } from '../../context/LiveLocationContext';
 
 interface DeliveryRouteMapProps {
   order?: Order | null;
@@ -43,18 +50,18 @@ type MapTheme = 'DARK_TACTICAL' | 'DAY_STREETS' | 'VOYAGER';
 const TILE_LAYERS: Record<MapTheme, { name: string; url: string; attribution: string }> = {
   DARK_TACTICAL: {
     name: 'Tactical Dark',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://osm.org/copyright">OSM</a>'
+    url: CARTO_TILE_URLS.DARK_TACTICAL,
+    attribution: CARTO_ATTRIBUTION
   },
   DAY_STREETS: {
     name: 'Day Streets',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
+    url: CARTO_TILE_URLS.DAY_STREETS,
+    attribution: OSM_ATTRIBUTION
   },
   VOYAGER: {
     name: 'High Contrast',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://osm.org/copyright">OSM</a>'
+    url: CARTO_TILE_URLS.VOYAGER,
+    attribution: CARTO_ATTRIBUTION
   }
 };
 
@@ -75,6 +82,18 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
   const [simulationActive, setSimulationActive] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0.45); // 0 to 1
   const animFrameRef = useRef<number | null>(null);
+
+  const {
+    locations,
+    connectionStatus,
+    isBroadcasting,
+    startBroadcasting,
+    stopBroadcasting,
+    updateLocation
+  } = useLiveLocations();
+
+  const assignedRiderId = order?.assigned_rider_id || 'rider-01';
+  const liveRider = locations[assignedRiderId] || locations['rider-01'];
 
   // Determine initial progress based on order status if not manually simulating
   const defaultProgress = useMemo(() => {
@@ -105,7 +124,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
   // Compute Full Route Geometry & Navigation Data
   const routeData: DeliveryRoute = useMemo(() => {
     return buildDeliveryRoute(
-      TRADER24_STORE_HUB.coords,
+      HUB_247_STORE.coords,
       customerCoords,
       simulationProgress
     );
@@ -317,14 +336,14 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
     hubMarker.bindPopup(`
       <div style="font-family: monospace; font-size: 11px; color: #1c1917; padding: 4px;">
         <strong style="color: #d97706; text-transform: uppercase; display: block; margin-bottom: 2px;">247 Base Hub</strong>
-        <div>${TRADER24_STORE_HUB.address}</div>
+        <div>${HUB_247_STORE.address}</div>
         <div style="color: #78716c; margin-top: 4px;">Central Inventory Resupply & Dispatch</div>
       </div>
     `);
 
     // 5. Customer Drop-off Marker
     const customerName = order?.customer_name || 'Customer Drop-Off';
-    const orderNum = order?.order_number || '#T24-ORDER';
+    const orderNum = order?.order_number || '#247-ORDER';
     const address = order?.delivery_address || 'Manchester, NH';
 
     const dropoffIcon = L.divIcon({
@@ -358,13 +377,21 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
     `);
 
     // 6. Rider Position Marker (Bicycle Courier Icon)
-    const riderSpeed = simulationActive ? '12.6 MPH' : '11.8 MPH';
+    const riderSpeed = liveRider?.speed_mph
+      ? `${liveRider.speed_mph} MPH`
+      : simulationActive ? '12.6 MPH' : '11.8 MPH';
+    const riderHeading = liveRider?.heading ?? routeData.currentHeading;
+    const isHardwareGps = liveRider?.is_real_device ?? false;
+    const riderDisplayCoords: [number, number] = (!simulationActive && liveRider && typeof liveRider.latitude === 'number' && typeof liveRider.longitude === 'number')
+      ? [liveRider.latitude, liveRider.longitude]
+      : riderCoords;
+
     const riderIcon = L.divIcon({
       className: 'custom-rider-icon',
       html: `
         <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 cursor-pointer">
-          <div class="absolute w-11 h-11 rounded-full bg-amber-400/25 animate-ping"></div>
-          <div class="relative w-9 h-9 rounded-xl bg-stone-950 border-2 border-amber-500 text-amber-400 flex items-center justify-center shadow-2xl">
+          <div class="absolute w-11 h-11 rounded-full ${isHardwareGps ? 'bg-sky-400/35 animate-ping' : 'bg-amber-400/25 animate-ping'}"></div>
+          <div class="relative w-9 h-9 rounded-xl ${isHardwareGps ? 'bg-stone-950 border-2 border-sky-400 text-sky-400' : 'bg-stone-950 border-2 border-amber-500 text-amber-400'} flex items-center justify-center shadow-2xl">
             <svg class="w-5 h-5 fill-none stroke-current" viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="18.5" cy="17.5" r="3.5"></circle>
               <circle cx="5.5" cy="17.5" r="3.5"></circle>
@@ -372,8 +399,12 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
               <path d="M12 17.5V14l-3-3 4-3 2 3h2"></path>
             </svg>
           </div>
-          <div class="absolute -top-5 px-1.5 py-0.5 rounded bg-amber-500 text-stone-950 font-black text-[9px] uppercase tracking-wider font-mono shadow whitespace-nowrap">
-            RIDER (${riderSpeed})
+          <!-- Heading direction indicator -->
+          <div class="absolute -top-3.5 w-3 h-3 flex items-center justify-center pointer-events-none" style="transform: rotate(${riderHeading}deg);">
+            <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[7px] ${isHardwareGps ? 'border-b-sky-400' : 'border-b-amber-400'}"></div>
+          </div>
+          <div class="absolute -top-6 px-1.5 py-0.5 rounded ${isHardwareGps ? 'bg-sky-500' : 'bg-amber-500'} text-stone-950 font-black text-[9px] uppercase tracking-wider font-mono shadow whitespace-nowrap">
+            ${isHardwareGps ? 'GPS ' : 'RIDER '}(${riderSpeed})
           </div>
         </div>
       `,
@@ -381,15 +412,70 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
       iconAnchor: [18, 18]
     });
 
-    const riderMarker = L.marker(riderCoords, { icon: riderIcon, zIndexOffset: 1000 }).addTo(group);
+    const riderMarker = L.marker(riderDisplayCoords, { icon: riderIcon, zIndexOffset: 1000 }).addTo(group);
     riderMarker.bindPopup(`
       <div style="font-family: monospace; font-size: 11px; color: #1c1917; padding: 4px;">
-        <strong style="color: #d97706; text-transform: uppercase; display: block; margin-bottom: 2px;">Cargo Bike 01</strong>
-        <div>Unit: Heavy Cargo Trailer (Manchester Central)</div>
-        <div style="color: #059669; font-weight: bold; margin-top: 4px;">Speed: ${riderSpeed}</div>
-        <div style="color: #78716c; margin-top: 2px;">Distance to Drop: ${(routeData.totalDistanceMiles * (1 - simulationProgress)).toFixed(2)} mi</div>
+        <strong style="color: #d97706; text-transform: uppercase; display: block; margin-bottom: 2px;">${liveRider?.name || 'Cargo Bike 01'}</strong>
+        <div>Unit: Heavy Cargo Trailer (Manchester Hub)</div>
+        <div style="color: #059669; font-weight: bold; margin-top: 4px;">Speed: ${riderSpeed} | Heading: ${riderHeading}°</div>
+        <div style="color: #78716c; margin-top: 2px;">Battery: ${liveRider?.battery_level || 90}% | GPS Accuracy: ±${liveRider?.accuracy_meters || 4}m</div>
+        <div style="color: #2563eb; margin-top: 2px;">Coordinates: ${riderDisplayCoords[0].toFixed(4)}, ${riderDisplayCoords[1].toFixed(4)}</div>
       </div>
     `);
+
+    // 6b. Render other active couriers on the road
+    Object.values(locations).forEach(otherLoc => {
+      if (otherLoc.role !== 'RIDER' || otherLoc.id === assignedRiderId) return;
+      const otherRiderIcon = L.divIcon({
+        className: 'custom-other-rider',
+        html: `
+          <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 opacity-80 hover:opacity-100">
+            <div class="w-7 h-7 rounded-lg bg-stone-900 border border-amber-400/80 text-amber-400 flex items-center justify-center shadow">
+              <span class="text-[9px] font-bold font-mono">${otherLoc.id.slice(-2)}</span>
+            </div>
+            <div class="absolute -bottom-3.5 px-1 rounded bg-stone-950 text-stone-300 font-mono text-[7px] whitespace-nowrap">
+              ${otherLoc.name.split(' ')[0]}
+            </div>
+          </div>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+
+      const otherRiderMarker = L.marker([otherLoc.latitude, otherLoc.longitude], { icon: otherRiderIcon, zIndexOffset: 750 }).addTo(group);
+      otherRiderMarker.bindPopup(`
+        <div style="font-family: monospace; font-size: 11px; color: #1c1917;">
+          <strong>Peer Courier: ${otherLoc.name}</strong>
+          <div>Status: ${otherLoc.status || 'ONLINE'} • Speed: ${otherLoc.speed_mph || 0} MPH</div>
+        </div>
+      `);
+    });
+
+    // 6c. Render Live Customer GPS Device (if customer shared their live device location)
+    Object.values(locations).forEach(custLoc => {
+      if (custLoc.role !== 'CUSTOMER') return;
+      const liveCustIcon = L.divIcon({
+        className: 'custom-live-customer',
+        html: `
+          <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2">
+            <div class="absolute w-8 h-8 rounded-full bg-blue-500/35 animate-ping"></div>
+            <div class="w-6 h-6 rounded-full bg-blue-500 border-2 border-white text-white flex items-center justify-center shadow-lg">
+              <span class="text-[9px] font-bold">YOU</span>
+            </div>
+          </div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      const liveCustMarker = L.marker([custLoc.latitude, custLoc.longitude], { icon: liveCustIcon, zIndexOffset: 920 }).addTo(group);
+      liveCustMarker.bindPopup(`
+        <div style="font-family: monospace; font-size: 11px; color: #1c1917;">
+          <strong>Live Customer Position</strong>
+          <div>Waiting for delivery arrival</div>
+        </div>
+      `);
+    });
 
     // 7. Render other active drop-offs (if multiple orders present) as secondary pins
     if (allActiveOrders.length > 1) {
@@ -431,7 +517,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
     if (!map) return;
 
     const bounds = L.latLngBounds([
-      TRADER24_STORE_HUB.coords,
+      HUB_247_STORE.coords,
       customerCoords,
       routeData.riderCoords
     ]);
@@ -501,7 +587,43 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
           </div>
 
           {/* Quick theme & reset tools */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center flex-wrap gap-1.5">
+            {/* Real Hardware GPS Broadcast Button */}
+            <button
+              onClick={() => {
+                if (isBroadcasting) {
+                  stopBroadcasting();
+                } else {
+                  startBroadcasting({
+                    role: 'RIDER',
+                    id: assignedRiderId,
+                    name: order?.assigned_rider_name || 'Alex Vance (Cargo #1)',
+                    orderId: order?.id,
+                    orderNumber: order?.order_number,
+                    destinationAddress: order?.delivery_address
+                  });
+                }
+              }}
+              className={`px-2 py-1 rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all ${
+                isBroadcasting
+                  ? 'bg-rose-500 text-stone-950 animate-pulse shadow'
+                  : 'bg-stone-950 hover:bg-stone-850 text-sky-400 border border-sky-500/40'
+              }`}
+              title="Broadcast real device GPS to customer and admin"
+            >
+              <Radio className="w-3.5 h-3.5" />
+              <span>{isBroadcasting ? 'GPS Active' : 'Broadcast GPS'}</span>
+            </button>
+
+            {/* Connection pill */}
+            <span className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold uppercase hidden sm:flex items-center gap-1 ${
+              connectionStatus === 'connected' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/30' :
+              'bg-amber-950/80 text-amber-400 border border-amber-500/30'
+            }`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span>{connectionStatus === 'connected' ? 'Mesh Live' : 'Polling'}</span>
+            </span>
+
             <button
               onClick={() => setActiveTheme(prev => 
                 prev === 'DARK_TACTICAL' ? 'DAY_STREETS' : prev === 'DAY_STREETS' ? 'VOYAGER' : 'DARK_TACTICAL'
@@ -649,7 +771,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
         {order?.delivery_address && (
           <div className="absolute bottom-3 right-12 z-10 hidden sm:block">
             <a
-              href={`https://www.google.com/maps/dir/?api=1&origin=${TRADER24_STORE_HUB.coords[0]},${TRADER24_STORE_HUB.coords[1]}&destination=${customerCoords[0]},${customerCoords[1]}&travelmode=bicycling`}
+              href={`https://www.google.com/maps/dir/?api=1&origin=${HUB_247_STORE.coords[0]},${HUB_247_STORE.coords[1]}&destination=${customerCoords[0]},${customerCoords[1]}&travelmode=bicycling`}
               target="_blank"
               rel="noopener noreferrer"
               className="px-2.5 py-1.5 rounded-xl bg-stone-950/90 backdrop-blur-md border border-stone-800 hover:border-amber-500 text-stone-300 hover:text-amber-400 text-xs font-bold flex items-center gap-1.5 shadow-xl transition-all"

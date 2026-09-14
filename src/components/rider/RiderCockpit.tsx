@@ -15,8 +15,16 @@ import {
   ArrowRight, 
   Sparkles,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Radio,
+  X,
+  Signal,
+  BatteryCharging,
+  Battery
 } from 'lucide-react';
+import { useLiveLocations } from '../../context/LiveLocationContext';
+import { api } from '../../services/api';
 
 export const RiderCockpit: React.FC = () => {
   const { 
@@ -26,8 +34,25 @@ export const RiderCockpit: React.FC = () => {
     currentRider, 
     setCurrentRider, 
     riders,
-    addToast 
+    addToast,
+    demoMode,
+    addMockDelivery,
+    seedMockDeliveries,
+    batteryExchanges,
+    refreshData
   } = useStore();
+
+  const [isAddingMock, setIsAddingMock] = useState(false);
+
+  const {
+    locations,
+    connectionStatus,
+    isBroadcasting,
+    startBroadcasting,
+    stopBroadcasting,
+    latestPing,
+    dismissPing
+  } = useLiveLocations();
 
   const [activeTab, setActiveTab] = useState<'DISPATCH' | 'ROUTE_MAP' | 'CART_LOADOUT' | 'SHIFT_STATS'>('DISPATCH');
   const [selectedOrderForRoute, setSelectedOrderForRoute] = useState<Order | null>(null);
@@ -65,10 +90,50 @@ export const RiderCockpit: React.FC = () => {
     setProblemReason('');
   };
 
+  const pendingSwaps = batteryExchanges.filter(s => s.status !== 'COMPLETED' && s.status !== 'CANCELLED');
+
+  const handleAdvanceSwapStatus = async (swapId: string, nextStatus: string) => {
+    try {
+      await api.updateBatteryExchangeStatus(swapId, {
+        status: nextStatus,
+        rider_id: currentRider?.id,
+        rider_name: currentRider?.name || 'Cargo Unit 1'
+      });
+      addToast('Battery Swap Updated', `Exchange marked as ${nextStatus}.`, 'info');
+      await refreshData();
+    } catch (e: any) {
+      addToast('Error', e.message || 'Failed to update swap', 'error');
+    }
+  };
+
   const cartInventory = products.filter(p => p.inventory_available > 0);
 
   return (
     <div className="space-y-4 pb-12">
+      {/* Real-time Dispatch Ping Alert Banner */}
+      {latestPing && (
+        <div className="p-3.5 bg-amber-500 text-stone-950 rounded-2xl flex items-center justify-between gap-3 shadow-xl animate-bounce">
+          <div className="flex items-center gap-2.5">
+            <Radio className="w-5 h-5 text-stone-950 animate-pulse shrink-0" />
+            <div>
+              <div className="font-mono-code font-black text-xs uppercase tracking-wider">
+                TACTICAL DISPATCH: {latestPing.title}
+              </div>
+              <div className="text-xs font-bold font-mono-code">
+                {latestPing.message}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={dismissPing}
+            className="p-1.5 rounded-lg bg-stone-950 text-white hover:bg-stone-800 transition-colors shrink-0"
+            title="Acknowledge Alert"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Top Rider Status Card */}
       <div className="p-4 bg-stone-900 border border-stone-800 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg">
         <div className="flex items-center gap-3">
@@ -76,18 +141,56 @@ export const RiderCockpit: React.FC = () => {
             <Bike className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-display font-extrabold text-base text-white uppercase">
                 {currentRider?.name || 'Rider 01 - Downtown Hub'}
               </span>
               <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded font-mono-code font-bold">
                 ONLINE
               </span>
+              {/* WebSocket mesh status indicator */}
+              <span className={`text-[10px] px-2 py-0.5 rounded font-mono-code font-bold uppercase flex items-center gap-1 ${
+                connectionStatus === 'connected'
+                  ? 'bg-sky-950 text-sky-400 border border-sky-500/40'
+                  : 'bg-amber-950 text-amber-400 border border-amber-500/40'
+              }`}>
+                <Signal className="w-3 h-3" />
+                <span>{connectionStatus === 'connected' ? 'GPS MESH SYNC' : 'POLLING'}</span>
+              </span>
             </div>
             <p className="text-xs text-stone-400 font-mono-code mt-0.5">
               Unit: {currentRider?.vehicle_type || 'Cargo Cargo Bike + Trailer'} • Manchester, NH
             </p>
           </div>
+        </div>
+
+        {/* GPS Broadcast Action Button */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (isBroadcasting) {
+                stopBroadcasting();
+              } else {
+                startBroadcasting({
+                  role: 'RIDER',
+                  id: currentRider?.id || 'rider-01',
+                  name: currentRider?.name || 'Alex Vance (Cargo #1)',
+                  orderId: activeOrders[0]?.id,
+                  orderNumber: activeOrders[0]?.order_number,
+                  destinationAddress: activeOrders[0]?.delivery_address
+                });
+              }
+            }}
+            className={`px-3 py-1.5 rounded-xl font-mono-code text-xs font-bold flex items-center gap-2 transition-all ${
+              isBroadcasting
+                ? 'bg-rose-500 text-stone-950 animate-pulse shadow-lg shadow-rose-500/30'
+                : 'bg-stone-950 text-sky-400 border border-sky-500/40 hover:bg-stone-850'
+            }`}
+            title="Stream real GPS from your device to customers and admin"
+          >
+            <Radio className="w-4 h-4" />
+            <span>{isBroadcasting ? 'Broadcasting Device GPS' : 'Share My Live GPS'}</span>
+          </button>
         </div>
 
         {/* Tab switcher */}
@@ -136,19 +239,146 @@ export const RiderCockpit: React.FC = () => {
       {/* TAB 1: ACTIVE DISPATCH QUEUE */}
       {activeTab === 'DISPATCH' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="font-display font-bold text-base text-white uppercase tracking-wider flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
               Active Dispatch Queue ({activeOrders.length})
             </h2>
-            <span className="text-xs text-stone-400 font-mono-code">60-Min Target SLA</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-stone-400 font-mono-code hidden sm:inline">60-Min Target SLA</span>
+              {demoMode && (
+                <button
+                  onClick={async () => {
+                    setIsAddingMock(true);
+                    try {
+                      await addMockDelivery();
+                    } finally {
+                      setIsAddingMock(false);
+                    }
+                  }}
+                  disabled={isAddingMock}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-mono-code font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
+                  title="Inject a realistic mock delivery for testing rider navigation and workflow"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isAddingMock ? 'Dispatching...' : 'Add Mock Delivery'}</span>
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* Active Tesla Battery Hot-Swaps Queue */}
+          {pendingSwaps.length > 0 && (
+            <div className="p-4 bg-cyan-950/30 border border-cyan-500/50 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <h3 className="font-mono-code font-bold text-xs uppercase text-cyan-300 tracking-wider">
+                    Tesla Battery Hot-Swaps Pending Handover ({pendingSwaps.length})
+                  </h3>
+                </div>
+                <span className="text-[10px] font-mono-code text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
+                  BYO PACK SWAP
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {pendingSwaps.map(swap => (
+                  <div key={swap.id} className="p-3 bg-stone-900/90 rounded-xl border border-cyan-500/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded font-mono-code font-bold text-[10px] bg-cyan-900 text-cyan-200">
+                          {swap.capacity} mAh Pack
+                        </span>
+                        <strong className="text-white font-mono-code">{swap.customer_name}</strong>
+                        <span className="text-stone-400 font-mono-code text-[11px]">{swap.customer_phone}</span>
+                      </div>
+                      <div className="text-[11px] text-stone-300 font-mono-code mt-1 flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                        <span>{swap.delivery_address}</span>
+                      </div>
+                      <div className="text-[10px] text-stone-400 mt-0.5">
+                        Protocol: Hand over dead pack, deliver full pack ({swap.pack_serial || 'TSL-10K'})
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {swap.status === 'REQUESTED' && (
+                        <button
+                          onClick={() => handleAdvanceSwapStatus(swap.id, 'EN_ROUTE')}
+                          className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-stone-950 font-bold font-mono-code text-xs uppercase transition-colors"
+                        >
+                          Accept & Ride
+                        </button>
+                      )}
+                      {swap.status === 'EN_ROUTE' && (
+                        <button
+                          onClick={() => handleAdvanceSwapStatus(swap.id, 'COMPLETED')}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold font-mono-code text-xs uppercase transition-colors flex items-center gap-1.5"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Complete Handover</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {activeOrders.length === 0 ? (
-            <div className="p-8 text-center bg-stone-900 border border-stone-800 rounded-2xl text-stone-400 space-y-2">
+            <div className="p-8 text-center bg-stone-900 border border-stone-800 rounded-2xl text-stone-400 space-y-4">
               <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400" />
-              <p className="font-mono-code text-sm text-stone-200">No pending dispatches right now.</p>
-              <p className="text-xs text-stone-500">Stay positioned in your zone for incoming customer requests.</p>
+              <div>
+                <p className="font-mono-code text-sm text-stone-200">
+                  {demoMode ? 'No active dispatches currently in flight.' : 'Dispatch Queue Clear — Standing By'}
+                </p>
+                <p className="text-xs text-stone-500">
+                  {demoMode 
+                    ? 'Inject a mock delivery to simulate bicycle routing and status updates.'
+                    : 'Live courier telemetry is active. Standing by for customer orders across Manchester.'
+                  }
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                {demoMode ? (
+                  <>
+                    <button
+                      onClick={async () => {
+                        setIsAddingMock(true);
+                        try {
+                          await addMockDelivery();
+                        } finally {
+                          setIsAddingMock(false);
+                        }
+                      }}
+                      disabled={isAddingMock}
+                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-mono-code font-bold text-xs flex items-center gap-2 transition-colors shadow"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Mock Delivery</span>
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await seedMockDeliveries();
+                      }}
+                      className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-mono-code font-bold text-xs flex items-center gap-2 transition-colors border border-stone-700"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Seed Full Queue</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={refreshData}
+                    className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-mono-code font-bold text-xs flex items-center gap-2 transition-colors border border-stone-700"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Check Inbound Dispatches</span>
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="space-y-4">

@@ -74,6 +74,12 @@ service cloud.firestore {
       allow write: if isRider() || isAdmin();
     }
 
+    // Real-time Shared Live Locations across devices, riders, customers, and admin
+    match /live_locations/{locId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Orders
     match /orders/{orderId} {
       allow read: if true;
@@ -88,10 +94,32 @@ service cloud.firestore {
       allow write: if isRider() || isAdmin() || isAuthenticated();
     }
 
-    // Trader Pass Subscriptions
+    // Trader Pass, Tesla Pass & Combo Pass Subscriptions
     match /traderPassSubscriptions/{subId} {
       allow read: if true;
       allow write: if isAuthenticated() || isAdmin();
+    }
+
+    // Battery Pack Exchanges (Tesla Pass & Combo Pass)
+    match /batteryExchanges/{exchangeId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if isRider() || isAdmin() || isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Battery Hubs & Stations
+    match /batteryHubs/{hubId} {
+      allow read: if true;
+      allow write: if isRider() || isAdmin() || isAuthenticated();
+    }
+
+    // Battery Reservations
+    match /batteryReservations/{resId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if isRider() || isAdmin() || isAuthenticated();
+      allow delete: if isAdmin();
     }
 
     // Sponsors

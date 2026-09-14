@@ -16,14 +16,16 @@ import {
   X,
   Clock,
   LogIn,
-  LogOut
+  LogOut,
+  Compass
 } from 'lucide-react';
 
 interface HeaderProps {
   onOpenCart: () => void;
+  onOpenOnboarding?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenCart }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenCart, onOpenOnboarding }) => {
   const { 
     role, 
     setRole, 
@@ -81,7 +83,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart }) => {
           {/* Brand & Live Telemetry Title Section */}
           <div className="flex items-center gap-3 shrink-0 min-w-0">
             {/* 247 Emblem Icon */}
-            <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-stone-950 font-black text-base sm:text-lg tracking-tight shadow-md font-display shrink-0 ring-1 ring-amber-400/50">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-stone-950 font-black text-sm sm:text-base tracking-tight shadow-md font-display shrink-0 ring-1 ring-amber-400/50">
               247
             </div>
 
@@ -89,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart }) => {
             <div className="min-w-0 flex flex-col justify-center">
               <div className="flex items-center gap-2">
                 <span className="font-display font-black text-base sm:text-lg text-white tracking-wider leading-none truncate">
-              247
+                  247
                 </span>
                 <span className="hidden sm:inline-flex text-[10px] px-1.5 py-0.5 bg-stone-900 text-stone-400 rounded font-mono-code border border-stone-800">
                   MHT-01
@@ -188,17 +190,33 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart }) => {
 
             {/* Dynamic User Profile Badge & Profile Area */}
             <div id="header-profile-area" className="relative flex items-center shrink-0">
-              <UserProfileBadge onOpenAuthModal={() => setAuthModalOpen(true)} />
+              <UserProfileBadge 
+                onOpenAuthModal={() => setAuthModalOpen(true)} 
+                onOpenOnboarding={onOpenOnboarding}
+              />
             </div>
 
             {/* Install PWA Button Component (desktop/tablet header) */}
             <PWAInstallButton variant="header" className="hidden lg:flex" />
 
-            {/* Demo Reset (desktop header; mobile has it in drawer) */}
+            {/* Onboarding Guide (desktop header) */}
+            {onOpenOnboarding && (
+              <button
+                id="header-onboarding-btn"
+                onClick={onOpenOnboarding}
+                title="Interactive Onboarding & Role Tour"
+                className="hidden md:flex h-10 px-2.5 rounded-xl bg-stone-900 hover:bg-stone-850 text-stone-300 hover:text-amber-400 border border-stone-800 items-center gap-1.5 transition-colors shrink-0 text-xs font-mono-code font-bold"
+              >
+                <Compass className="w-4 h-4 text-amber-400" />
+                <span className="hidden xl:inline">Guide</span>
+              </button>
+            )}
+
+            {/* System Baseline Sync (Admin or maintenance) */}
             <button
-              id="demo-reset-btn"
+              id="system-sync-btn"
               onClick={resetDemoState}
-              title="Reset Firestore with Seed Dataset"
+              title="Synchronize Database Baseline"
               disabled={loading}
               className="hidden lg:flex h-10 w-10 rounded-xl bg-stone-900 hover:bg-stone-850 text-stone-400 hover:text-amber-400 border border-stone-800 items-center justify-center transition-colors shrink-0"
             >
@@ -329,11 +347,19 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart }) => {
                   <LogIn className="w-4 h-4" /> Sign In / Create Account
                 </button>
               )}
+              {onOpenOnboarding && (
+                <button
+                  onClick={() => { onOpenOnboarding(); setMobileMenuOpen(false); }}
+                  className="text-amber-400 hover:text-amber-300 flex items-center gap-1.5 py-1 font-semibold"
+                >
+                  <Compass className="w-3.5 h-3.5" /> Guide
+                </button>
+              )}
               <button
                 onClick={() => { resetDemoState(); setMobileMenuOpen(false); }}
                 className="text-stone-400 hover:text-stone-200 flex items-center gap-1.5 py-1"
               >
-                <RefreshCw className="w-3.5 h-3.5" /> Reset Demo
+                <RefreshCw className="w-3.5 h-3.5" /> Sync Data
               </button>
             </div>
           </div>

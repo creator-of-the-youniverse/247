@@ -25,7 +25,7 @@ interface AuthModalProps {
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { login, register, loginWithGoogle, quickDemoLogin, loading } = useAuth();
-  const { addToast, setRole } = useStore();
+  const { addToast, setRole, demoMode } = useStore();
   const [isRegister, setIsRegister] = useState(false);
 
   const [email, setEmail] = useState('');
@@ -143,12 +143,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Quick Demo Identities Highlighted at Top for instant zero-friction access */}
+        {/* Quick Role Identities Highlighted at Top */}
         <div className="mb-5 p-3.5 bg-stone-950/90 rounded-xl border border-stone-800 shadow-inner">
           <div className="flex items-center justify-between mb-2">
             <div className="text-[11px] font-mono-code font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-              Quick Demo Identities
+              {demoMode ? 'Quick Demo Identities' : 'Direct Role Switcher'}
             </div>
             <span className="text-[10px] text-emerald-400 font-mono-code bg-emerald-950/60 border border-emerald-800/60 px-1.5 py-0.2 rounded font-semibold">
               Instant 1-Click

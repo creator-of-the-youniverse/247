@@ -42,7 +42,7 @@
       if ('caches' in window) {
         caches.keys().then((keys) => {
           keys.forEach((key) => {
-            if (!key.startsWith('trader24-v6')) {
+            if (!key.startsWith('247-v7')) {
               console.log('[PWA] Evicting stale cache:', key);
               caches.delete(key);
             }

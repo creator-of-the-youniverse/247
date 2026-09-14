@@ -9,7 +9,12 @@ import {
   FreeEssentialSettings,
   Rider,
   BusinessMetrics,
-  PaymentMethod
+  PaymentMethod,
+  BatteryExchangeRecord,
+  BatteryCapacity,
+  BatteryHub,
+  BatteryReservation,
+  PassTier
 } from '../types';
 import { api } from '../services/api';
 
@@ -40,6 +45,9 @@ interface StoreContextType {
   setRole: (role: UserRole) => void;
   demoMode: boolean;
   setDemoMode: (enabled: boolean) => void;
+  cleanBuild: boolean;
+  setCleanBuild: (clean: boolean) => void;
+  enableCleanBuild: () => Promise<void>;
   
   // Data
   products: Product[];
@@ -80,13 +88,40 @@ interface StoreContextType {
   cartTotal: number;
   cartItemCount: number;
 
+  // Membership & Battery Exchange Privileges
+  batteryExchanges: BatteryExchangeRecord[];
+  batteryHubs: BatteryHub[];
+  batteryReservations: BatteryReservation[];
+  hasBatteryPrivilege: boolean;
+  hasDeliveryPrivilege: boolean;
+
   // Actions
   placeOrder: () => Promise<Order>;
   updateOrderStatus: (orderId: string, status: string, notes?: string) => Promise<Order>;
-  toggleMemberPass: () => Promise<void>;
+  toggleMemberPass: (targetTier?: PassTier, registeredCapacities?: BatteryCapacity[]) => Promise<void>;
+  requestBatteryExchange: (
+    capacity: BatteryCapacity,
+    address?: string,
+    notes?: string,
+    exchangeType?: 'DELIVERY_DISPATCH' | 'STREET_SWAP' | 'HUB_WALKUP'
+  ) => Promise<BatteryExchangeRecord>;
+  reserveBatteryPack: (
+    hubId: string,
+    capacity: BatteryCapacity,
+    options?: {
+      holdDuration?: number;
+      pickupMode?: 'HUB_WALKUP' | 'COURIER_DISPATCH';
+      notes?: string;
+    }
+  ) => Promise<BatteryReservation>;
+  cancelBatteryReservation: (reservationId: string) => Promise<void>;
+  claimBatteryReservation: (reservationId: string) => Promise<void>;
+  refreshBatteryHubs: () => Promise<void>;
   applyEssentialCredit: (amount: number) => void;
   refreshData: () => Promise<void>;
   resetDemoState: () => Promise<void>;
+  addMockDelivery: (params?: { status?: string; delivery_address?: string; customer_name?: string }) => Promise<Order>;
+  seedMockDeliveries: () => Promise<void>;
   toasts: ToastMessage[];
   addToast: (title: string, message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
   removeToast: (id: string) => void;
@@ -119,7 +154,19 @@ const DEFAULT_FREE_SETTINGS: FreeEssentialSettings = {
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRole] = useState<UserRole>('CUSTOMER');
-  const [demoMode, setDemoMode] = useState<boolean>(false);
+  const [cleanBuild, setCleanBuild] = useState<boolean>(() => {
+    return localStorage.getItem('247_clean_build') === 'true' ||
+           localStorage.getItem('247_onboarding_completed') === 'true' ||
+           localStorage.getItem('trader24_clean_build') === 'true' ||
+           localStorage.getItem('trader24_onboarding_completed') === 'true';
+  });
+  const [demoMode, setDemoMode] = useState<boolean>(() => {
+    const isClean = localStorage.getItem('247_clean_build') === 'true' ||
+                    localStorage.getItem('247_onboarding_completed') === 'true' ||
+                    localStorage.getItem('trader24_clean_build') === 'true' ||
+                    localStorage.getItem('trader24_onboarding_completed') === 'true';
+    return !isClean;
+  });
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
@@ -129,6 +176,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [riders, setRiders] = useState<Rider[]>([]);
   const [currentRider, setCurrentRider] = useState<Rider | null>(null);
   const [activePass, setActivePass] = useState<TraderPassSubscription | null>(null);
+  const [batteryExchanges, setBatteryExchanges] = useState<BatteryExchangeRecord[]>([]);
+  const [batteryHubs, setBatteryHubs] = useState<BatteryHub[]>([]);
+  const [batteryReservations, setBatteryReservations] = useState<BatteryReservation[]>([]);
   const [analytics, setAnalytics] = useState<BusinessMetrics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +221,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         freeData,
         passData,
         riderList,
-        analyticsData
+        analyticsData,
+        swaps,
+        hubs,
+        resList
       ] = await Promise.all([
         api.getProducts(),
         api.getOrders(),
@@ -180,7 +233,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         api.getFreeEssentials(),
         api.getTraderPass(),
         api.getRiders(),
-        api.getAnalytics()
+        api.getAnalytics(),
+        api.getBatteryExchanges().catch(() => []),
+        api.getBatteryHubs().catch(() => []),
+        api.getBatteryReservations().catch(() => [])
       ]);
 
       setProducts(prods || []);
@@ -200,6 +256,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (passData?.subscribers && passData.subscribers.length > 0) {
         setActivePass(passData.subscribers[0]);
       }
+      if (swaps) setBatteryExchanges(swaps);
+      if (hubs) setBatteryHubs(hubs);
+      if (resList) setBatteryReservations(resList);
       if (analyticsData) setAnalytics(analyticsData);
       setError(null);
     } catch (err: any) {
@@ -350,8 +409,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
   }, []);
 
-  // Calculate pricing
+  // Calculate pricing & membership privileges
   const isMember = activePass?.subscription_status === 'ACTIVE';
+  const currentPassTier: PassTier = activePass?.pass_type || 'TRADER';
+  const hasBatteryPrivilege = Boolean(isMember && (currentPassTier === 'TESLA' || currentPassTier === 'COMBO'));
+  const hasDeliveryPrivilege = Boolean(isMember && (currentPassTier === 'TRADER' || currentPassTier === 'COMBO'));
 
   const cartSubtotal = cart.items.reduce((sum, item) => {
     const price = isMember ? item.member_price : item.unit_price;
@@ -420,7 +482,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setActivePass(updatedPass);
     }
 
-    addToast('Order Placed!', `Trader rolling for ${newOrder.order_number}. Target arrival ≤60 min.`, 'success');
+    addToast('Order Placed!', `Riders rolling out for ${newOrder.order_number}. Target arrival ≤60 min.`, 'success');
     refreshData();
     return newOrder;
   };
@@ -441,29 +503,187 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return updated;
   };
 
-  const toggleMemberPass = async () => {
-    if (activePass && activePass.subscription_status === 'ACTIVE') {
-      const updated = await api.updateTraderPass(activePass.id, 'PAUSED');
-      setActivePass(updated);
-      addToast('Trader Pass Paused', 'Your pass is paused.', 'info');
-    } else if (activePass) {
-      const updated = await api.updateTraderPass(activePass.id, 'ACTIVE');
-      setActivePass(updated);
-      addToast('Trader Pass Active!', '$20 Monthly Essential Credit & Free Delivery active.', 'success');
-    } else {
-      const newSub = await api.subscribeTraderPass({
-        customer_id: 'cust-current',
-        customer_name: cart.customer_name || 'Alex J.',
-        customer_email: 'alex.j@manchester.net'
-      });
-      setActivePass(newSub);
-      addToast('Welcome to Trader Pass!', '$20 Essential Credit loaded to your wallet.', 'success');
+  const toggleMemberPass = async (targetTier: PassTier = 'TRADER', registeredCapacities?: BatteryCapacity[]) => {
+    try {
+      if (activePass && activePass.subscription_status === 'ACTIVE') {
+        // If switching tier
+        if (activePass.pass_type !== targetTier) {
+          const updated = await api.updateTraderPass(activePass.id, {
+            pass_type: targetTier,
+            registered_battery_capacities: registeredCapacities
+          });
+          setActivePass(updated);
+          addToast(
+            'Pass Tier Updated!',
+            `Switched to ${targetTier === 'COMBO' ? 'Combined Pass ($30/mo)' : targetTier === 'TESLA' ? 'Tesla Pass ($20/mo)' : 'Trader Pass ($20/mo)'}.`,
+            'success'
+          );
+          refreshData();
+          return;
+        }
+        // If clicking same active pass, pause it
+        const updated = await api.updateTraderPass(activePass.id, 'PAUSED');
+        setActivePass(updated);
+        addToast('Membership Paused', 'Your pass is paused. Reactivate anytime.', 'info');
+      } else if (activePass) {
+        const updated = await api.updateTraderPass(activePass.id, {
+          subscription_status: 'ACTIVE',
+          pass_type: targetTier,
+          registered_battery_capacities: registeredCapacities
+        });
+        setActivePass(updated);
+        addToast(
+          'Membership Active!',
+          `${targetTier === 'COMBO' ? 'Combined Pass ($30/mo)' : targetTier === 'TESLA' ? 'Tesla Pass ($20/mo)' : 'Trader Pass ($20/mo)'} activated.`,
+          'success'
+        );
+      } else {
+        const newSub = await api.subscribeTraderPass({
+          customer_id: 'cust-current',
+          customer_name: cart.customer_name || 'Alex J.',
+          customer_email: 'alex.j@manchester.net',
+          pass_type: targetTier,
+          registered_capacities: registeredCapacities || ['5000', '10000']
+        });
+        setActivePass(newSub);
+        addToast(
+          `Welcome to ${targetTier === 'COMBO' ? 'Combined Pass' : targetTier === 'TESLA' ? 'Tesla Pass' : 'Trader Pass'}!`,
+          targetTier === 'TESLA'
+            ? 'Tesla 2k-20k mAh battery hot-swap network is ready.'
+            : targetTier === 'COMBO'
+            ? '$20 Essential Credit & Unlimited Tesla Battery Swaps active.'
+            : '$20 Essential Credit loaded to your wallet.',
+          'success'
+        );
+      }
+      refreshData();
+    } catch (e: any) {
+      addToast('Membership Error', e.message || 'Could not update subscription', 'error');
     }
-    refreshData();
+  };
+
+  const requestBatteryExchange = async (
+    capacity: BatteryCapacity,
+    address?: string,
+    notes?: string,
+    exchangeType: 'DELIVERY_DISPATCH' | 'STREET_SWAP' | 'HUB_WALKUP' = 'DELIVERY_DISPATCH'
+  ): Promise<BatteryExchangeRecord> => {
+    try {
+      const result = await api.requestBatteryExchange({
+        customer_id: activePass?.customer_id || 'cust-current',
+        customer_name: activePass?.customer_name || cart.customer_name || 'Tesla Pass Member',
+        customer_phone: cart.customer_phone || '(603) 555-0144',
+        capacity,
+        exchange_type: exchangeType,
+        delivery_address: address || cart.delivery_address || '875 Elm St, Manchester, NH',
+        notes: notes || `BYO Pack Swap: ${capacity} mAh handover for full pack`
+      });
+
+      setBatteryExchanges(prev => [result, ...prev]);
+      addToast(
+        'Battery Swap Dispatched!',
+        `Courier en route with full ${capacity} mAh pack. Hand over dead pack upon arrival.`,
+        'success'
+      );
+      refreshData();
+      return result;
+    } catch (e: any) {
+      addToast('Exchange Error', e.message || 'Failed to dispatch battery swap', 'error');
+      throw e;
+    }
+  };
+
+  const refreshBatteryHubs = async () => {
+    try {
+      const [hubs, resList] = await Promise.all([
+        api.getBatteryHubs(),
+        api.getBatteryReservations()
+      ]);
+      setBatteryHubs(hubs);
+      setBatteryReservations(resList);
+    } catch (e) {
+      console.warn('Could not refresh battery hubs:', e);
+    }
+  };
+
+  const reserveBatteryPack = async (
+    hubId: string,
+    capacity: BatteryCapacity,
+    options?: {
+      holdDuration?: number;
+      pickupMode?: 'HUB_WALKUP' | 'COURIER_DISPATCH';
+      notes?: string;
+    }
+  ): Promise<BatteryReservation> => {
+    try {
+      const res = await api.reserveBatteryPack({
+        hub_id: hubId,
+        capacity,
+        hold_duration_minutes: options?.holdDuration || 30,
+        pickup_mode: options?.pickupMode || 'HUB_WALKUP',
+        notes: options?.notes,
+        customer_name: activePass?.customer_name || cart.customer_name || 'Tesla Pass Member',
+        customer_phone: cart.customer_phone || '(603) 555-0144'
+      });
+
+      setBatteryReservations(prev => [res.reservation, ...prev.filter(r => r.id !== res.reservation.id)]);
+      setBatteryHubs(prev => prev.map(h => h.id === res.hub.id ? res.hub : h));
+
+      addToast(
+        'Battery Pack Reserved!',
+        `${capacity} mAh pack held at ${res.reservation.hub_name}. Code: ${res.reservation.reservation_code}`,
+        'success'
+      );
+
+      return res.reservation;
+    } catch (e: any) {
+      addToast('Reservation Error', e.message || 'Failed to reserve battery pack', 'error');
+      throw e;
+    }
+  };
+
+  const cancelBatteryReservation = async (reservationId: string) => {
+    try {
+      const res = await api.cancelBatteryReservation(reservationId);
+      setBatteryReservations(prev => prev.map(r => r.id === reservationId ? res.reservation : r));
+      await refreshBatteryHubs();
+      addToast('Reservation Released', 'Your battery pack reservation has been cancelled.', 'info');
+    } catch (e: any) {
+      addToast('Error', e.message || 'Failed to cancel reservation', 'error');
+      throw e;
+    }
+  };
+
+  const claimBatteryReservation = async (reservationId: string) => {
+    try {
+      const res = await api.claimBatteryReservation(reservationId);
+      setBatteryReservations(prev => prev.map(r => r.id === reservationId ? res.reservation : r));
+      setBatteryExchanges(prev => [res.exchange, ...prev]);
+      await refreshBatteryHubs();
+      addToast(
+        'Battery Swap Complete!',
+        `Handover verified. Pack issued (${res.exchange.capacity} mAh).`,
+        'success'
+      );
+    } catch (e: any) {
+      addToast('Error', e.message || 'Failed to claim pack', 'error');
+      throw e;
+    }
   };
 
   const applyEssentialCredit = (amount: number) => {
     // credit handled in payment selector
+  };
+
+  const enableCleanBuild = async () => {
+    localStorage.setItem('247_clean_build', 'true');
+    localStorage.setItem('247_onboarding_completed', 'true');
+    localStorage.setItem('trader24_clean_build', 'true');
+    localStorage.setItem('trader24_onboarding_completed', 'true');
+    setCleanBuild(true);
+    setDemoMode(false);
+    setOrders(prev => prev.filter(o => !o.id.includes('mock') && !o.notes?.toLowerCase().includes('mock')));
+    addToast('Clean Build Active', 'All demo controls and synthetic mock data dismissed.', 'success');
   };
 
   const resetDemoState = async () => {
@@ -473,6 +693,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addToast('Demo Reset', '247 system reset to clean seed data.', 'info');
   };
 
+  const addMockDelivery = async (params?: { status?: string; delivery_address?: string; customer_name?: string }) => {
+    try {
+      const order = await api.createMockOrder(params);
+      setCurrentOrder(order);
+      await refreshData();
+      addToast(
+        'Mock Delivery Dispatched',
+        `${order.order_number} (${order.status.replace(/_/g, ' ')}) at ${order.delivery_address}`,
+        'success'
+      );
+      return order;
+    } catch (e: any) {
+      addToast('Error', e.message || 'Failed to dispatch mock delivery', 'error');
+      throw e;
+    }
+  };
+
+  const seedMockDeliveries = async () => {
+    try {
+      const res = await api.seedMockDeliveries();
+      await refreshData();
+      addToast('Mock Deliveries Seeded', `Loaded ${res.count} mock deliveries into dispatch queue.`, 'success');
+    } catch (e: any) {
+      addToast('Error', e.message || 'Failed to seed deliveries', 'error');
+    }
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -480,6 +727,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setRole,
         demoMode,
         setDemoMode,
+        cleanBuild,
+        setCleanBuild,
+        enableCleanBuild,
         products,
         approvedProducts,
         orders,
@@ -492,6 +742,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         currentRider,
         setCurrentRider,
         activePass,
+        batteryExchanges,
+        batteryHubs,
+        batteryReservations,
+        hasBatteryPrivilege,
+        hasDeliveryPrivilege,
         analytics,
         loading,
         error,
@@ -516,9 +771,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         placeOrder,
         updateOrderStatus,
         toggleMemberPass,
+        requestBatteryExchange,
+        reserveBatteryPack,
+        cancelBatteryReservation,
+        claimBatteryReservation,
+        refreshBatteryHubs,
         applyEssentialCredit,
         refreshData,
         resetDemoState,
+        addMockDelivery,
+        seedMockDeliveries,
         toasts,
         addToast,
         removeToast

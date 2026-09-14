@@ -11,7 +11,12 @@ import {
   AuditLogEntry,
   BusinessMetrics,
   CartLoadoutRecommendation,
-  UserProfile
+  UserProfile,
+  BatteryExchangeRecord,
+  BatteryCapacity,
+  BatteryHub,
+  BatteryReservation,
+  PassTier
 } from '../types';
 
 let currentAuthToken: string | null = null;
@@ -186,6 +191,29 @@ export const api = {
     return res.json();
   },
 
+  async createMockOrder(params?: { status?: string; delivery_address?: string; customer_name?: string }): Promise<Order> {
+    const res = await this.fetchWithAuth('/api/orders/mock', {
+      method: 'POST',
+      body: JSON.stringify(params || {})
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create mock delivery');
+    }
+    return res.json();
+  },
+
+  async seedMockDeliveries(): Promise<{ success: boolean; count: number }> {
+    const res = await this.fetchWithAuth('/api/orders/seed-mock-deliveries', {
+      method: 'POST'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to seed mock deliveries');
+    }
+    return res.json();
+  },
+
   // Free Essentials
   async getFreeEssentials(): Promise<{ settings: FreeEssentialSettings; metrics: any; distributions: any[] }> {
     const res = await this.fetchWithAuth('/api/free-essentials');
@@ -205,14 +233,29 @@ export const api = {
     return res.json();
   },
 
-  // Trader Pass
-  async getTraderPass(): Promise<{ price_monthly: number; subscribers: TraderPassSubscription[]; active_count: number }> {
+  // Membership Passes (Trader Pass, Tesla Pass, Combo Pass)
+  async getTraderPass(): Promise<{
+    price_monthly: number;
+    subscribers: TraderPassSubscription[];
+    active_count: number;
+    trader_count?: number;
+    tesla_count?: number;
+    combo_count?: number;
+    total_battery_swaps?: number;
+    catalog?: any[];
+  }> {
     const res = await this.fetchWithAuth('/api/trader-pass');
     if (!res.ok) throw new Error('Failed to fetch Trader Pass data');
     return res.json();
   },
 
-  async subscribeTraderPass(data: { customer_id: string; customer_name: string; customer_email: string }): Promise<TraderPassSubscription> {
+  async subscribeTraderPass(data: {
+    customer_id: string;
+    customer_name: string;
+    customer_email: string;
+    pass_type?: PassTier;
+    registered_capacities?: BatteryCapacity[];
+  }): Promise<TraderPassSubscription> {
     const res = await this.fetchWithAuth('/api/trader-pass/subscribe', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -224,14 +267,114 @@ export const api = {
     return res.json();
   },
 
-  async updateTraderPass(id: string, status: string): Promise<TraderPassSubscription> {
+  async updateTraderPass(
+    id: string,
+    updates: string | { subscription_status?: string; pass_type?: PassTier; registered_battery_capacities?: BatteryCapacity[] }
+  ): Promise<TraderPassSubscription> {
+    const payload = typeof updates === 'string' ? { subscription_status: updates } : updates;
     const res = await this.fetchWithAuth(`/api/trader-pass/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ subscription_status: status })
+      body: JSON.stringify(payload)
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to update subscription');
+    }
+    return res.json();
+  },
+
+  // Tesla Battery Pack Exchange Network
+  async getBatteryExchanges(): Promise<BatteryExchangeRecord[]> {
+    const res = await this.fetchWithAuth('/api/battery-exchange/history');
+    if (!res.ok) throw new Error('Failed to fetch battery exchanges');
+    return res.json();
+  },
+
+  async requestBatteryExchange(data: {
+    customer_id?: string;
+    customer_name?: string;
+    customer_phone?: string;
+    capacity: BatteryCapacity;
+    exchange_type?: 'DELIVERY_DISPATCH' | 'STREET_SWAP' | 'HUB_WALKUP';
+    delivery_address?: string;
+    notes?: string;
+  }): Promise<BatteryExchangeRecord> {
+    const res = await this.fetchWithAuth('/api/battery-exchange/request', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to request battery exchange');
+    }
+    return res.json();
+  },
+
+  async updateBatteryExchangeStatus(
+    id: string,
+    data: { status: string; rider_id?: string; rider_name?: string; notes?: string }
+  ): Promise<BatteryExchangeRecord> {
+    const res = await this.fetchWithAuth(`/api/battery-exchange/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update battery exchange status');
+    }
+    return res.json();
+  },
+
+  async getBatteryHubs(): Promise<BatteryHub[]> {
+    const res = await this.fetchWithAuth('/api/battery-hubs');
+    if (!res.ok) throw new Error('Failed to fetch battery hubs');
+    return res.json();
+  },
+
+  async getBatteryReservations(): Promise<BatteryReservation[]> {
+    const res = await this.fetchWithAuth('/api/battery-reservations');
+    if (!res.ok) throw new Error('Failed to fetch battery reservations');
+    return res.json();
+  },
+
+  async reserveBatteryPack(data: {
+    hub_id: string;
+    capacity: BatteryCapacity;
+    hold_duration_minutes?: number;
+    pickup_mode?: 'HUB_WALKUP' | 'COURIER_DISPATCH';
+    notes?: string;
+    customer_name?: string;
+    customer_phone?: string;
+  }): Promise<{ reservation: BatteryReservation; hub: BatteryHub }> {
+    const res = await this.fetchWithAuth('/api/battery-reservations/reserve', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to reserve battery pack');
+    }
+    return res.json();
+  },
+
+  async cancelBatteryReservation(id: string): Promise<{ success: boolean; reservation: BatteryReservation }> {
+    const res = await this.fetchWithAuth(`/api/battery-reservations/${id}/cancel`, {
+      method: 'POST'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to cancel reservation');
+    }
+    return res.json();
+  },
+
+  async claimBatteryReservation(id: string): Promise<{ success: boolean; exchange: BatteryExchangeRecord; reservation: BatteryReservation }> {
+    const res = await this.fetchWithAuth(`/api/battery-reservations/${id}/claim`, {
+      method: 'POST'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to claim battery pack');
     }
     return res.json();
   },

@@ -8,7 +8,8 @@ import {
   Clock, 
   Sparkles, 
   MapPin, 
-  ShieldCheck 
+  ShieldCheck,
+  PhoneCall
 } from 'lucide-react';
 
 interface AskTraderScreenProps {
@@ -89,12 +90,22 @@ export const AskTraderScreen: React.FC<AskTraderScreenProps> = ({ isOpen, onClos
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-stone-800 text-stone-400 hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href="tel:6035550199"
+              className="px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-stone-950 font-bold text-[11px] font-mono-code flex items-center gap-1 shadow transition-colors"
+              title="Call directly"
+            >
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span>Call Direct</span>
+            </a>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg bg-stone-800 text-stone-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Message Log */}

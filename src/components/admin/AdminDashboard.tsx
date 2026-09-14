@@ -47,7 +47,8 @@ import {
   Sliders,
   Calculator,
   Zap,
-  Scale
+  Scale,
+  Radio
 } from 'lucide-react';
 
 import { ProductEconomicsTable } from './ProductEconomicsTable';
@@ -58,9 +59,11 @@ import { CartOptimizerView } from './CartOptimizerView';
 import { ScenarioPlannerView } from './ScenarioPlannerView';
 import { EconomicsSettingsView } from './EconomicsSettingsView';
 import { TraderEconomicsDashboard } from './TraderEconomicsDashboard';
+import { LiveFleetRadar } from './LiveFleetRadar';
 
 type AdminTab =
   | 'OVERVIEW'
+  | 'LIVE_FLEET_RADAR'
   | 'PRODUCT_ECONOMICS'
   | 'ORDER_ECONOMICS'
   | 'CART_OPTIMIZER'
@@ -82,8 +85,11 @@ export const AdminDashboard: React.FC = () => {
     serviceZones,
     settings,
     analytics,
+    demoMode,
     refreshData,
     resetDemoState,
+    addMockDelivery,
+    seedMockDeliveries,
     updateOrderStatus,
     addToast
   } = useStore();
@@ -255,6 +261,8 @@ export const AdminDashboard: React.FC = () => {
 
   const navItems: { id: AdminTab; label: string; icon: any; category?: string }[] = [
     { id: 'OVERVIEW', label: 'Economics Dashboard', icon: DollarSign },
+    { id: 'LIVE_FLEET_RADAR', label: '⚡ Live Fleet Radar', icon: Radio },
+    { id: 'ORDERS', label: 'Live Orders', icon: ShoppingBag },
     { id: 'PRODUCT_ECONOMICS', label: 'Product Margins', icon: TrendingUp },
     { id: 'ORDER_ECONOMICS', label: 'Order Ledger', icon: BarChart3 },
     { id: 'CART_OPTIMIZER', label: 'Cart Optimizer', icon: Zap },
@@ -262,7 +270,6 @@ export const AdminDashboard: React.FC = () => {
     { id: 'FREE_ESSENTIALS', label: 'Free Essentials', icon: HeartHandshake },
     { id: 'SCENARIO_PLANNER', label: 'Scenario Planner', icon: Calculator },
     { id: 'ECONOMICS_CONFIG', label: 'Business Inputs', icon: Sliders },
-    { id: 'ORDERS', label: 'Live Orders', icon: ShoppingBag },
     { id: 'INVENTORY', label: 'Inventory & Cart', icon: Package },
     { id: 'PRODUCTS', label: 'Products Catalog', icon: Edit3 },
     { id: 'COMPLIANCE', label: 'Compliance', icon: ShieldCheck },
@@ -300,13 +307,29 @@ export const AdminDashboard: React.FC = () => {
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Refresh</span>
           </button>
-          <button
-            id="btn-reset-demo-state"
-            onClick={resetDemoState}
-            className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-amber-400 text-xs font-mono flex items-center gap-1.5 transition-colors"
-          >
-            <span>Reset Demo Data</span>
-          </button>
+          {demoMode && (
+            <>
+              <button
+                id="btn-add-mock-delivery"
+                onClick={async () => {
+                  await addMockDelivery();
+                  await loadEconomicsData();
+                }}
+                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs font-mono flex items-center gap-1.5 transition-colors shadow-sm"
+                title="Dispatch a mock delivery across Manchester"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Mock Delivery</span>
+              </button>
+              <button
+                id="btn-reset-demo-state"
+                onClick={resetDemoState}
+                className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-amber-400 text-xs font-mono flex items-center gap-1.5 transition-colors"
+              >
+                <span>Reset Demo Data</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -340,6 +363,11 @@ export const AdminDashboard: React.FC = () => {
           alerts={econAlerts}
           loading={econLoading}
         />
+      )}
+
+      {/* --- TAB: REAL-TIME SHARED LIVE FLEET RADAR --- */}
+      {activeTab === 'LIVE_FLEET_RADAR' && (
+        <LiveFleetRadar />
       )}
 
       {/* --- TAB 2: PRODUCT ECONOMICS & MARGINS --- */}

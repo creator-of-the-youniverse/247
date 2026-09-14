@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { StoreProvider, useStore } from './context/StoreContext';
+import { LiveLocationProvider } from './context/LiveLocationContext';
 import { Header } from './components/Header';
 import { BottomNav, CustomerTab } from './components/BottomNav';
 import { ToastContainer } from './components/ToastContainer';
@@ -19,6 +20,7 @@ import { SendTraderScreen } from './components/customer/SendTraderScreen';
 import { AskTraderScreen } from './components/customer/AskTraderScreen';
 import { RiderCockpit } from './components/rider/RiderCockpit';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { OnboardingSequence } from './components/onboarding/OnboardingSequence';
 
 const MainApp: React.FC = () => {
   const { role, orders } = useStore();
@@ -30,6 +32,9 @@ const MainApp: React.FC = () => {
   const [freeModalOpen, setFreeModalOpen] = useState(false);
   const [sendTraderOpen, setSendTraderOpen] = useState(false);
   const [askTraderOpen, setAskTraderOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(() => {
+    return !localStorage.getItem('247_onboarding_completed') && !localStorage.getItem('trader24_onboarding_completed');
+  });
 
   const activeOrdersCount = orders.filter(o => o.status !== 'DELIVERED' && o.status !== 'CANCELLED').length;
 
@@ -39,7 +44,10 @@ const MainApp: React.FC = () => {
       <OfflineIndicator />
 
       {/* Header */}
-      <Header onOpenCart={() => setCartOpen(true)} />
+      <Header 
+        onOpenCart={() => setCartOpen(true)} 
+        onOpenOnboarding={() => setOnboardingOpen(true)}
+      />
 
       {/* PWA Install Banner (Prompts on mobile browsers) */}
       <PWAInstallBanner />
@@ -129,6 +137,12 @@ const MainApp: React.FC = () => {
         onClose={() => setAskTraderOpen(false)}
       />
 
+      {/* Interactive System Onboarding Sequence */}
+      <OnboardingSequence
+        isOpen={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+      />
+
       {/* Industrial Notifications */}
       <ToastContainer />
     </div>
@@ -139,7 +153,9 @@ export function App() {
   return (
     <AuthProvider>
       <StoreProvider>
-        <MainApp />
+        <LiveLocationProvider>
+          <MainApp />
+        </LiveLocationProvider>
       </StoreProvider>
     </AuthProvider>
   );

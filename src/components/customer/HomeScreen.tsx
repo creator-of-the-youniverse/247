@@ -13,7 +13,8 @@ import {
   ArrowRight,
   Flame,
   Plus,
-  Bike
+  Bike,
+  PhoneCall
 } from 'lucide-react';
 
 interface HomeScreenProps {
@@ -121,9 +122,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </div>
         </button>
 
-        {/* ACTION 2: SEND TRADER (AI Natural Language) */}
+        {/* ACTION 2: SEND RIDER (AI Natural Language) */}
         <button
-          id="home-action-send-trader"
+          id="home-action-send-rider"
           onClick={onOpenSendTrader}
           className="p-4 rounded-xl bg-gradient-to-br from-stone-900 to-amber-950/40 border border-amber-500/40 hover:border-amber-400 hover:from-stone-850 text-left transition-all group flex flex-col justify-between h-32 active:scale-[0.98]"
         >
@@ -134,7 +135,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <span className="text-[10px] font-mono-code bg-amber-400 text-stone-950 px-1.5 py-0.5 rounded font-black">AI ASSIST</span>
           </div>
           <div>
-            <span className="font-display font-bold text-lg text-amber-300 block uppercase">SEND TRADER</span>
+            <span className="font-display font-bold text-lg text-amber-300 block uppercase">SEND RIDER</span>
             <span className="text-xs text-stone-300 block font-mono-code">Describe what you need</span>
           </div>
         </button>
@@ -157,23 +158,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </div>
         </button>
 
-        {/* ACTION 4: ASK TRADER */}
-        <button
+        {/* ACTION 4: ASK TRADER (Direct Phone Link) */}
+        <a
           id="home-action-ask-trader"
-          onClick={onOpenAskTrader}
+          href="tel:6035550199"
           className="p-4 rounded-xl bg-stone-900 border border-stone-800 hover:border-sky-500/60 hover:bg-stone-850 text-left transition-all group flex flex-col justify-between h-32 active:scale-[0.98]"
         >
           <div className="flex items-center justify-between w-full">
             <div className="w-10 h-10 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 group-hover:bg-sky-500 group-hover:text-stone-950 transition-colors">
-              <HelpCircle className="w-5 h-5" />
+              <PhoneCall className="w-5 h-5" />
             </div>
-            <ArrowRight className="w-4 h-4 text-stone-500 group-hover:text-sky-400 group-hover:translate-x-1 transition-all" />
+            <span className="text-[10px] font-mono-code bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded font-bold">DIRECT CALL</span>
           </div>
           <div>
             <span className="font-display font-bold text-lg text-white block uppercase">ASK TRADER</span>
-            <span className="text-xs text-stone-400 block font-mono-code">Delivery, items & kits Q&A</span>
+            <span className="text-xs text-stone-400 block font-mono-code">Call directly: (603) 555-0199</span>
           </div>
-        </button>
+        </a>
       </div>
 
       {/* PWA Mobile Quick Install Card */}

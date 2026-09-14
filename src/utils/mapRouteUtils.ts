@@ -17,11 +17,12 @@ export interface DeliveryRoute {
   totalDistanceKm: number;
   estimatedBikeMinutes: number;
   carbonSavedGrams: number;
+  currentHeading?: number;
   turnInstructions: { step: number; text: string; distance: string }[];
 }
 
 // 247 Base Hub - Elm St & Merrimack St, Downtown Manchester, NH
-export const TRADER24_STORE_HUB: {
+export const HUB_247_STORE: {
   name: string;
   address: string;
   coords: [number, number];
@@ -30,6 +31,30 @@ export const TRADER24_STORE_HUB: {
   address: 'Elm St & Merrimack St, Downtown Manchester, NH 03101',
   coords: [42.9908, -71.4637]
 };
+
+// Aliased for backwards compatibility
+export const TRADER24_STORE_HUB = HUB_247_STORE;
+
+// CARTO Basemaps API Key & Tile URL Helpers
+export const CARTO_API_KEY =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_CARTO_API_KEY) ||
+  'cb1_3jdd_1_c947439b7a2d910293a64686';
+
+export const CARTO_TILE_URLS = {
+  DARK_TACTICAL: CARTO_API_KEY
+    ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`
+    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  VOYAGER: CARTO_API_KEY
+    ? `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`
+    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  DAY_STREETS: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+};
+
+export const CARTO_ATTRIBUTION =
+  '&copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
+
+export const OSM_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors';
 
 // Known Manchester landmarks & address mappings
 const KNOWN_MANCHESTER_LOCATIONS: Record<string, [number, number]> = {
@@ -110,7 +135,7 @@ export function resolveManchesterCoordinates(address: string): [number, number] 
  * and east-west cross streets (Granite, Merrimack, Hanover, Amherst, Bridge).
  */
 export function buildDeliveryRoute(
-  storeCoords: [number, number] = TRADER24_STORE_HUB.coords,
+  storeCoords: [number, number] = HUB_247_STORE.coords,
   customerCoords: [number, number],
   riderProgressPercent = 0.45 // 0 = at store, 1 = at customer
 ): DeliveryRoute {
@@ -164,7 +189,7 @@ export function buildDeliveryRoute(
   const turnInstructions = [
     {
       step: 1,
-      text: 'Depart 247 Base Hub (Elm & Merrimack) heading towards delivery zone',
+      text: 'Depart 24 Base Hub (Elm & Merrimack) heading towards delivery zone',
       distance: '0.1 mi'
     },
     {

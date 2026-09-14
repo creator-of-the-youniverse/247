@@ -131,8 +131,8 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
           >
             <div className="flex items-center justify-between pb-2 border-b border-stone-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500 text-stone-950 flex items-center justify-center font-black text-sm">
-              247
+                <div className="w-8 h-8 rounded-lg bg-amber-500 text-stone-950 flex items-center justify-center font-black text-xs">
+                  247
                 </div>
                 <div>
                   <h3 className="font-display font-extrabold text-base text-white uppercase">Install 247</h3>
@@ -152,7 +152,6 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                 <p className="text-stone-300">
                   Install 247 directly onto your iPhone or iPad home screen for full-screen access and offline emergency support:
                 </p>
-
                 <div className="p-3 bg-stone-950 rounded-xl border border-stone-800/80 space-y-2.5 font-mono-code">
                   <div className="flex items-center gap-3">
                     <span className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">1</span>

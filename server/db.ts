@@ -1,5 +1,25 @@
+import {
+  INITIAL_PRODUCTS,
+  INITIAL_SERVICE_ZONES,
+  INITIAL_RESOURCES,
+  INITIAL_RIDERS,
+  INITIAL_SETTINGS,
+  INITIAL_FREE_SETTINGS,
+  INITIAL_SUBSCRIBERS,
+  INITIAL_ORDERS,
+  INITIAL_FREE_DISTRIBUTIONS,
+  INITIAL_SPONSORS,
+  INITIAL_INVENTORY_TRANSACTIONS,
+  INITIAL_AUDIT_LOGS,
+  INITIAL_BATTERY_EXCHANGES,
+  INITIAL_BATTERY_HUBS,
+  INITIAL_BATTERY_RESERVATIONS
+} from '../src/data/initialData.js';
+import { DEFAULT_ECONOMICS_CONFIG } from '../src/utils/economics.js';
+
 export interface DocSnapshot {
   id: string;
+  ref: DocReference;
   exists: boolean;
   data(): any;
 }
@@ -15,6 +35,7 @@ export interface DocReference {
   collectionName: string;
   get(): Promise<DocSnapshot>;
   set(data: any, options?: { merge?: boolean }): Promise<void>;
+  update(data: any): Promise<void>;
   delete(): Promise<void>;
 }
 
@@ -26,30 +47,44 @@ export class InMemoryCollection {
     this.name = name;
   }
 
-  doc(id: string): DocReference {
-    return {
-      id,
+  doc(id?: string): DocReference {
+    const docId = id || `doc-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`;
+    const docRef: DocReference = {
+      id: docId,
       collectionName: this.name,
       get: async (): Promise<DocSnapshot> => {
-        const item = this.docs.get(id);
+        const item = this.docs.get(docId);
         return {
-          id,
+          id: docId,
+          ref: docRef,
           exists: item !== undefined,
           data: () => (item ? JSON.parse(JSON.stringify(item)) : undefined)
         };
       },
       set: async (data: any, options?: { merge?: boolean }): Promise<void> => {
-        if (options?.merge && this.docs.has(id)) {
-          const existing = this.docs.get(id);
-          this.docs.set(id, { ...existing, ...data });
+        if (options?.merge && this.docs.has(docId)) {
+          const existing = this.docs.get(docId);
+          this.docs.set(docId, { ...existing, ...data });
         } else {
-          this.docs.set(id, { ...data, id: id || data.id });
+          this.docs.set(docId, { ...data, id: docId || data.id });
         }
       },
+      update: async (data: any): Promise<void> => {
+        const existing = this.docs.get(docId) || {};
+        this.docs.set(docId, { ...existing, ...data, id: docId });
+      },
       delete: async (): Promise<void> => {
-        this.docs.delete(id);
+        this.docs.delete(docId);
       }
     };
+    return docRef;
+  }
+
+  async add(data: any): Promise<DocReference> {
+    const autoId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`;
+    const ref = this.doc(autoId);
+    await ref.set(data);
+    return ref;
   }
 
   where(field: string, op: string, val: any): CollectionQuery {
@@ -149,11 +184,15 @@ export class CollectionQuery {
       items = items.slice(0, this.limitCount);
     }
 
-    const docs: DocSnapshot[] = items.map(item => ({
-      id: item.id,
-      exists: true,
-      data: () => JSON.parse(JSON.stringify(item.data))
-    }));
+    const docs: DocSnapshot[] = items.map(item => {
+      const docRef = this.collection.doc(item.id);
+      return {
+        id: item.id,
+        ref: docRef,
+        exists: true,
+        data: () => JSON.parse(JSON.stringify(item.data))
+      };
+    });
 
     return {
       docs,
@@ -169,6 +208,13 @@ export class WriteBatch {
   set(docRef: DocReference, data: any, options?: { merge?: boolean }) {
     this.operations.push(async () => {
       await docRef.set(data, options);
+    });
+    return this;
+  }
+
+  update(docRef: DocReference, data: any) {
+    this.operations.push(async () => {
+      await docRef.update(data);
     });
     return this;
   }
@@ -191,7 +237,117 @@ export class StoreDb {
   private collections: Map<string, InMemoryCollection> = new Map();
 
   constructor() {
-    // Production store starts empty. Demo/onboarding data must be explicitly loaded.
+    this.initDefaultData();
+  }
+
+  private initDefaultData() {
+    // 1. Products
+    const productsCol = this.getOrCreateCol('products');
+    INITIAL_PRODUCTS.forEach(p => productsCol.docs.set(p.id, JSON.parse(JSON.stringify(p))));
+
+    // 2. Service Zones
+    const zonesCol = this.getOrCreateCol('serviceZones');
+    INITIAL_SERVICE_ZONES.forEach(z => zonesCol.docs.set(z.id, JSON.parse(JSON.stringify(z))));
+
+    // 3. Resources
+    const resCol = this.getOrCreateCol('resources');
+    INITIAL_RESOURCES.forEach(r => resCol.docs.set(r.id, JSON.parse(JSON.stringify(r))));
+
+    // 4. Riders
+    const ridersCol = this.getOrCreateCol('riders');
+    INITIAL_RIDERS.forEach(r => ridersCol.docs.set(r.id, JSON.parse(JSON.stringify(r))));
+
+    // 5. Settings
+    const settingsCol = this.getOrCreateCol('settings');
+    settingsCol.docs.set('global', JSON.parse(JSON.stringify(INITIAL_SETTINGS)));
+
+    // 6. Free Essential Settings
+    const freeCol = this.getOrCreateCol('freeSettings');
+    freeCol.docs.set('global', JSON.parse(JSON.stringify(INITIAL_FREE_SETTINGS)));
+
+    // 7. Economics Config
+    const econCol = this.getOrCreateCol('economicsConfig');
+    econCol.docs.set('global', JSON.parse(JSON.stringify(DEFAULT_ECONOMICS_CONFIG)));
+
+    // 8. Subscribers
+    const subsCol = this.getOrCreateCol('traderPassSubscriptions');
+    INITIAL_SUBSCRIBERS.forEach(s => subsCol.docs.set(s.id, JSON.parse(JSON.stringify(s))));
+
+    // 9. Orders
+    const ordersCol = this.getOrCreateCol('orders');
+    INITIAL_ORDERS.forEach(o => ordersCol.docs.set(o.id, JSON.parse(JSON.stringify(o))));
+
+    // 10. Free Distributions
+    const distCol = this.getOrCreateCol('freeDistributions');
+    INITIAL_FREE_DISTRIBUTIONS.forEach(d => distCol.docs.set(d.id, JSON.parse(JSON.stringify(d))));
+
+    // 11. Sponsors
+    const spCol = this.getOrCreateCol('sponsors');
+    INITIAL_SPONSORS.forEach(s => spCol.docs.set(s.id, JSON.parse(JSON.stringify(s))));
+
+    // 12. Inventory Transactions
+    const txCol = this.getOrCreateCol('inventoryTransactions');
+    INITIAL_INVENTORY_TRANSACTIONS.forEach(t => txCol.docs.set(t.id, JSON.parse(JSON.stringify(t))));
+
+    // 13. Audit Logs
+    const logCol = this.getOrCreateCol('auditLogs');
+    INITIAL_AUDIT_LOGS.forEach(l => logCol.docs.set(l.id, JSON.parse(JSON.stringify(l))));
+
+    // 13b. Battery Hubs
+    const hubsCol = this.getOrCreateCol('batteryHubs');
+    INITIAL_BATTERY_HUBS.forEach(h => hubsCol.docs.set(h.id, JSON.parse(JSON.stringify(h))));
+
+    // 13c. Battery Reservations
+    const batteryResCol = this.getOrCreateCol('batteryReservations');
+    INITIAL_BATTERY_RESERVATIONS.forEach(r => batteryResCol.docs.set(r.id, JSON.parse(JSON.stringify(r))));
+
+    // 13d. Battery Exchanges
+    const exCol = this.getOrCreateCol('batteryExchanges');
+    INITIAL_BATTERY_EXCHANGES.forEach(e => exCol.docs.set(e.id, JSON.parse(JSON.stringify(e))));
+
+    // 14. Users
+    const usersCol = this.getOrCreateCol('users');
+    usersCol.docs.set('admin-default', {
+      id: 'admin-default',
+      email: 'admin@trader24.net',
+      display_name: '24 Admin',
+      role: 'ADMIN',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      active: true
+    });
+
+    // 15. Live Locations (Shared real-time coordinates)
+    const locCol = this.getOrCreateCol('live_locations');
+    locCol.docs.set('rider-01', {
+      id: 'rider-01',
+      role: 'RIDER',
+      name: 'Alex "Spoke" Vance (Cargo #1)',
+      latitude: 42.9908,
+      longitude: -71.4637,
+      heading: 45,
+      speed_mph: 11.5,
+      accuracy_meters: 4.2,
+      battery_level: 88,
+      status: 'DELIVERING',
+      order_number: 'TR-9825',
+      updated_at: new Date().toISOString(),
+      is_real_device: false
+    });
+    locCol.docs.set('rider-02', {
+      id: 'rider-02',
+      role: 'RIDER',
+      name: 'Marcus Cole (Cargo #2)',
+      latitude: 42.9882,
+      longitude: -71.4658,
+      heading: 270,
+      speed_mph: 13.8,
+      accuracy_meters: 5.0,
+      battery_level: 94,
+      status: 'ONLINE',
+      updated_at: new Date().toISOString(),
+      is_real_device: false
+    });
   }
 
   private getOrCreateCol(name: string): InMemoryCollection {
@@ -214,6 +370,7 @@ export class StoreDb {
   async runTransaction<T>(updateFunction: (transaction: {
     get: (ref: DocReference) => Promise<DocSnapshot>;
     set: (ref: DocReference, data: any, options?: { merge?: boolean }) => void;
+    update: (ref: DocReference, data: any) => void;
     delete: (ref: DocReference) => void;
   }) => Promise<T>): Promise<T> {
     const sets: Array<() => Promise<void>> = [];
@@ -223,6 +380,11 @@ export class StoreDb {
       set: (ref: DocReference, data: any, options?: { merge?: boolean }) => {
         sets.push(async () => {
           await ref.set(data, options);
+        });
+      },
+      update: (ref: DocReference, data: any) => {
+        sets.push(async () => {
+          await ref.update(data);
         });
       },
       delete: (ref: DocReference) => {

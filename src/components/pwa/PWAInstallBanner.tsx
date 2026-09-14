@@ -218,8 +218,8 @@ export const PWAInstallBanner: React.FC = () => {
               <div className="relative shrink-0">
                 <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 p-0.5 shadow-md shadow-amber-500/10">
                   <div className="w-full h-full bg-stone-950 rounded-[10px] flex items-center justify-center">
-                    <span className="font-display font-black text-amber-400 text-sm tracking-tighter">
-              247
+                    <span className="font-display font-black text-amber-400 text-xs sm:text-sm tracking-tighter">
+                      247
                     </span>
                   </div>
                 </div>
@@ -341,8 +341,8 @@ export const PWAInstallBanner: React.FC = () => {
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-stone-800">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-display font-black text-sm shadow">
-              247
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-display font-black text-xs sm:text-sm shadow">
+                  247
                 </div>
                 <div>
                   <h3 className="font-display font-extrabold text-base text-white uppercase tracking-wide">

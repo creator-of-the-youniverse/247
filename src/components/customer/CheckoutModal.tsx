@@ -150,7 +150,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               >
                 {serviceZones.map(zone => (
                   <option key={zone.id} value={zone.id}>
-                    {zone.name} • ETA {zone.typical_eta_minutes} min ({zone.status})
+                    {zone.name} • Target ≤{zone.target_time_minutes || 45} min (Guaranteed ≤60m)
                   </option>
                 ))}
               </select>

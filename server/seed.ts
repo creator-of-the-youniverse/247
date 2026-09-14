@@ -11,7 +11,10 @@ import {
   INITIAL_FREE_DISTRIBUTIONS,
   INITIAL_SPONSORS,
   INITIAL_INVENTORY_TRANSACTIONS,
-  INITIAL_AUDIT_LOGS
+  INITIAL_AUDIT_LOGS,
+  INITIAL_BATTERY_EXCHANGES,
+  INITIAL_BATTERY_HUBS,
+  INITIAL_BATTERY_RESERVATIONS
 } from '../src/data/initialData.js';
 import { DEFAULT_ECONOMICS_CONFIG } from '../src/utils/economics.js';
 
@@ -99,6 +102,24 @@ export async function ensureFirestoreSeeded(forceReset = false) {
     for (const log of INITIAL_AUDIT_LOGS) {
       const ref = db.collection('auditLogs').doc(log.id);
       batch.set(ref, { ...log, demo_data: true });
+    }
+
+    // 12b. Battery Pack Exchanges (Tesla & Combo Passes)
+    for (const swap of INITIAL_BATTERY_EXCHANGES) {
+      const ref = db.collection('batteryExchanges').doc(swap.id);
+      batch.set(ref, swap);
+    }
+
+    // 12c. Battery Hubs & Stations
+    for (const hub of INITIAL_BATTERY_HUBS) {
+      const ref = db.collection('batteryHubs').doc(hub.id);
+      batch.set(ref, hub);
+    }
+
+    // 12d. Active Battery Reservations
+    for (const res of INITIAL_BATTERY_RESERVATIONS) {
+      const ref = db.collection('batteryReservations').doc(res.id);
+      batch.set(ref, res);
     }
 
     // 13. Pre-seed Demo Users

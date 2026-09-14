@@ -1,9 +1,18 @@
 import express from 'express';
 import path from 'path';
+import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { getFirestoreDb } from './server/db.js';
 import { authenticateUser, requireAuth, requireRole, AuthenticatedRequest } from './server/auth.js';
 import { ensureFirestoreSeeded } from './server/seed.js';
+import { INITIAL_ORDERS, INITIAL_BATTERY_HUBS, INITIAL_BATTERY_RESERVATIONS } from './src/data/initialData.js';
+import {
+  setupWebSocketServer,
+  getActiveLocationsRecord,
+  updateLiveLocation,
+  resetLiveLocationsDemo,
+  broadcastLiveMessage
+} from './server/liveLocations.js';
 import {
   Product,
   Order,
@@ -28,7 +37,11 @@ import {
   BreakEvenResult,
   ScenarioInputs,
   ScenarioResults,
-  AdminAlert
+  AdminAlert,
+  BatteryExchangeRecord,
+  BatteryHub,
+  BatteryReservation,
+  PassTier
 } from './src/types.js';
 import {
   DEFAULT_ECONOMICS_CONFIG,
@@ -214,15 +227,17 @@ async function calculateBusinessMetrics(): Promise<BusinessMetrics> {
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = 3000;
 
   app.use(express.json());
 
   // Attach global auth extraction middleware
   app.use(authenticateUser);
 
-  // Production startup intentionally does not seed demo data.
-  // Demo data is loaded explicitly by the onboarding/demo flow.
+  // Initialize Firestore collections from seed if empty (run asynchronously so server starts instantly)
+  ensureFirestoreSeeded(false).catch(err => {
+    console.error('Initial Firestore seed check error:', err);
+  });
 
   // --- API ROUTES ---
 
@@ -311,18 +326,12 @@ async function startServer() {
     try {
       const db = getFirestoreDb();
       const data = req.body;
-    if (typeof data.sku !== "string" || data.sku.trim() === "") {
-      return res.status(400).json({ error: "A real SKU is required when creating a product." });
-    }
-    if (!Number.isInteger(data.inventory_on_hand) || data.inventory_on_hand < 0) {
-      return res.status(400).json({ error: "A real initial inventory quantity is required when creating a product." });
-    }
       const id = `prod-${Date.now()}`;
       const newProduct: Product = {
         ...data,
         id,
-        sku: data.sku.trim(),
-        inventory_available: data.inventory_on_hand,
+        sku: data.sku || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+        inventory_available: Number(data.inventory_on_hand || 0),
         inventory_reserved: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -727,6 +736,187 @@ async function startServer() {
     }
   });
 
+  // GENERATE ON-DEMAND MOCK DELIVERY
+  app.post('/api/orders/mock', async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getFirestoreDb();
+      const body = req.body || {};
+
+      const mockLocations = [
+        { address: '875 Elm St, Apt 4B, Manchester, NH', zone: 'zone-man-downtown', instructions: 'Ring buzzer 4B, leave on door mat or hand to me.' },
+        { address: 'Corner of Granite St & Canal St, Manchester, NH', zone: 'zone-man-downtown', instructions: 'Wearing a navy beanie standing outside staff entrance.' },
+        { address: '320 McGregor St (West Side), Manchester, NH', zone: 'zone-man-west-side', instructions: 'Side porch light is on. Please knock 2 times.' },
+        { address: '195 McGregor St, Manchester, NH', zone: 'zone-man-west-side', instructions: 'Meeting in main entrance turnaround by the visitor bike rack.' },
+        { address: '405 Pine St, Manchester, NH', zone: 'zone-man-downtown', instructions: 'Near the Manchester Library park side benches.' },
+        { address: '40 Pine St, Manchester, NH', zone: 'zone-man-downtown', instructions: 'Front steps of CAP community center. Look for green jacket.' },
+        { address: '293 Wilson St, Manchester, NH', zone: 'zone-man-east-side', instructions: 'Side entrance near driveway. Call on arrival.' },
+        { address: '540 Chestnut St, Manchester, NH', zone: 'zone-man-downtown', instructions: 'Delivered to front lobby table.' },
+        { address: '199 Manchester St, Manchester, NH', zone: 'zone-man-downtown', instructions: 'Hand to reception desk staff inside gate.' },
+        { address: 'Commercial St & Bridge St, Manchester, NH', zone: 'zone-man-downtown', instructions: 'Under brick mill archway near the bike trail entrance.' },
+        { address: '100 McGregor St, Manchester, NH', zone: 'zone-man-west-side', instructions: 'Emergency wing patient intake lobby area.' },
+        { address: '80 Willow St, Manchester, NH', zone: 'zone-man-south-end', instructions: 'Side loading bay door.' }
+      ];
+
+      const mockCustomers = [
+        { name: 'Sarah Jenkins', phone: '(603) 555-7812' },
+        { name: 'Dave Miller', phone: '(603) 555-3490' },
+        { name: 'Jordan Rivera', phone: '(603) 555-8911' },
+        { name: 'Elena Rostova', phone: '(603) 555-6421' },
+        { name: 'Liam O\'Connor', phone: '(603) 555-4432' },
+        { name: 'Maya Lin', phone: '(603) 555-9120' },
+        { name: 'Marcus Chen', phone: '(603) 555-7788' },
+        { name: 'Hannah Brooks', phone: '(603) 555-3122' },
+        { name: 'Carlos Mendez', phone: '(603) 555-1980' },
+        { name: 'Chloe Bennett', phone: '(603) 555-4819' },
+        { name: 'Tyler Reed', phone: '(603) 555-1244' },
+        { name: 'Jason Tremblay', phone: '(603) 555-5201' },
+        { name: 'Samantha Ortiz', phone: '(603) 555-8319' }
+      ];
+
+      const mockRiders = [
+        { id: 'rider-01', name: 'Alex "Spoke" Vance' },
+        { id: 'rider-02', name: 'Marcus Cole' }
+      ];
+
+      const mockStatuses: any[] = ['OUT_FOR_DELIVERY', 'ARRIVING', 'ACCEPTED', 'PREPARING', 'READY', 'PLACED'];
+
+      const loc = mockLocations[Math.floor(Math.random() * mockLocations.length)];
+      const cust = mockCustomers[Math.floor(Math.random() * mockCustomers.length)];
+      const rider = mockRiders[Math.floor(Math.random() * mockRiders.length)];
+      const selectedStatus = body.status || mockStatuses[Math.floor(Math.random() * mockStatuses.length)];
+
+      const orderId = `ord-${Date.now()}`;
+      const orderNumber = `TR-${Math.floor(8000 + Math.random() * 1999)}`;
+      const now = new Date();
+
+      // Query some approved products
+      const prodSnap = await db.collection('products').where('compliance_status', '==', 'APPROVED').limit(6).get();
+      let chosenItems: any[] = [];
+      let freeItem: any = null;
+
+      if (!prodSnap.empty) {
+        const prods = prodSnap.docs.map(d => d.data() as Product);
+        const item1 = prods[Math.floor(Math.random() * prods.length)];
+        chosenItems.push({
+          product_id: item1.id,
+          name: item1.name,
+          quantity: 1 + Math.floor(Math.random() * 2),
+          unit_price: item1.retail_price || 3.00,
+          member_price: item1.member_price || (item1.retail_price ? item1.retail_price * 0.8 : 2.50),
+          unit_cost: item1.unit_cost || 0.80,
+          category: item1.category
+        });
+
+        // Chance of second item
+        if (prods.length > 1) {
+          const item2 = prods.find(p => p.id !== item1.id) || prods[0];
+          chosenItems.push({
+            product_id: item2.id,
+            name: item2.name,
+            quantity: 1,
+            unit_price: item2.retail_price || 2.50,
+            member_price: item2.member_price || (item2.retail_price ? item2.retail_price * 0.8 : 2.00),
+            unit_cost: item2.unit_cost || 0.70,
+            category: item2.category
+          });
+        }
+
+        // Add free essential item
+        const freeCandidate = prods.find(p => p.category === 'ESSENTIALS' || p.category === 'WEATHER' || p.category === 'FOOD & DRINK') || prods[0];
+        freeItem = {
+          product_id: freeCandidate.id,
+          name: freeCandidate.name,
+          quantity: 1,
+          unit_price: 0,
+          member_price: 0,
+          unit_cost: freeCandidate.unit_cost || 0.40,
+          is_free_item: true,
+          category: freeCandidate.category
+        };
+      } else {
+        chosenItems = [
+          {
+            product_id: 'prod-water-01',
+            name: 'Poland Spring Natural Spring Water (1 Liter)',
+            quantity: 2,
+            unit_price: 2.00,
+            member_price: 1.50,
+            unit_cost: 0.45,
+            category: 'ESSENTIALS'
+          }
+        ];
+      }
+
+      const subtotal = chosenItems.reduce((sum, it) => sum + (it.unit_price * it.quantity), 0);
+      const isMember = Math.random() > 0.5;
+      const deliveryFee = isMember ? 0.00 : 5.00;
+      const passDiscount = isMember ? 2.00 : 0.00;
+      const total = Math.max(0, subtotal + deliveryFee - passDiscount);
+
+      const newMockOrder: Order = {
+        id: orderId,
+        order_number: orderNumber,
+        customer_id: `cust-${Math.floor(100 + Math.random() * 900)}`,
+        customer_name: body.customer_name || cust.name,
+        customer_phone: cust.phone,
+        delivery_address: body.delivery_address || loc.address,
+        delivery_zone_id: loc.zone,
+        delivery_instructions: loc.instructions,
+        items: chosenItems,
+        free_item: freeItem,
+        subtotal,
+        delivery_fee: deliveryFee,
+        pass_discount: passDiscount,
+        credit_applied: 0.00,
+        total,
+        payment_method: isMember ? 'TRADER_PASS_CREDIT' : 'CARD',
+        payment_status: 'PAID',
+        status: selectedStatus,
+        created_at: new Date(now.getTime() - 15 * 60000).toISOString(),
+        accepted_at: new Date(now.getTime() - 13 * 60000).toISOString(),
+        preparing_at: ['PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'ARRIVING', 'DELIVERED'].includes(selectedStatus)
+          ? new Date(now.getTime() - 10 * 60000).toISOString() : undefined,
+        ready_at: ['READY', 'OUT_FOR_DELIVERY', 'ARRIVING', 'DELIVERED'].includes(selectedStatus)
+          ? new Date(now.getTime() - 7 * 60000).toISOString() : undefined,
+        out_for_delivery_at: ['OUT_FOR_DELIVERY', 'ARRIVING', 'DELIVERED'].includes(selectedStatus)
+          ? new Date(now.getTime() - 5 * 60000).toISOString() : undefined,
+        arriving_at: ['ARRIVING', 'DELIVERED'].includes(selectedStatus)
+          ? new Date(now.getTime() - 1 * 60000).toISOString() : undefined,
+        deadline_at: new Date(now.getTime() + 45 * 60000).toISOString(),
+        assigned_rider_id: rider.id,
+        assigned_rider_name: rider.name,
+        rider_notes: `Bicycle courier rolling on route. ETA ~15 min.`,
+        age_verified: true,
+        requires_id_check: false
+      };
+
+      await db.collection('orders').doc(orderId).set(newMockOrder);
+      await addAuditLog(req.user?.email || 'Demo Dispatch', 'MOCK_DELIVERY_DISPATCHED', `Order ${orderNumber} (${newMockOrder.status}) to ${newMockOrder.delivery_address}`);
+
+      res.status(201).json(newMockOrder);
+    } catch (e: any) {
+      console.error('Mock order generation error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // SEED ALL MOCK DELIVERIES TO FIRESTORE
+  app.post('/api/orders/seed-mock-deliveries', async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getFirestoreDb();
+      const batch = db.batch();
+      for (const order of INITIAL_ORDERS) {
+        batch.set(db.collection('orders').doc(order.id), order);
+      }
+      await batch.commit();
+      await addAuditLog(req.user?.email || 'System', 'MOCK_DELIVERIES_SEEDED', `Populated ${INITIAL_ORDERS.length} mock deliveries`);
+      res.json({ success: true, count: INITIAL_ORDERS.length, message: `Successfully seeded ${INITIAL_ORDERS.length} mock deliveries.` });
+    } catch (e: any) {
+      console.error('Seed mock deliveries error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.patch('/api/orders/:id/status', requireRole(['ADMIN', 'RIDER']), async (req: AuthenticatedRequest, res) => {
     try {
       const db = getFirestoreDb();
@@ -766,6 +956,43 @@ async function startServer() {
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
+  });
+
+  // LIVE LOCATIONS & REAL-TIME SHARED MAP API
+  app.get('/api/live-locations', (req, res) => {
+    res.json({
+      success: true,
+      locations: getActiveLocationsRecord(),
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  app.post('/api/live-locations', async (req, res) => {
+    try {
+      const { id, role, latitude, longitude } = req.body;
+      if (!id || !role || typeof latitude !== 'number' || typeof longitude !== 'number') {
+        return res.status(400).json({ error: 'Missing required fields: id, role, latitude, longitude' });
+      }
+      const updated = await updateLiveLocation(req.body);
+      res.json({ success: true, location: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/live-locations/reset-demo', (req, res) => {
+    const locations = resetLiveLocationsDemo();
+    res.json({ success: true, locations });
+  });
+
+  app.post('/api/live-locations/dispatch-ping', (req, res) => {
+    const { title, message, targetId } = req.body;
+    broadcastLiveMessage({
+      type: 'DISPATCH_PING',
+      payload: { title, message, targetId, time: new Date().toISOString() },
+      timestamp: new Date().toISOString()
+    });
+    res.json({ success: true, message: 'Ping broadcasted' });
   });
 
   // FREE ESSENTIALS API
@@ -820,17 +1047,65 @@ async function startServer() {
     }
   });
 
-  // TRADER PASS API
+  // MEMBERSHIP PASSES & TESLA BATTERY EXCHANGE API
   app.get('/api/trader-pass', async (req, res) => {
     try {
       const db = getFirestoreDb();
-      const snap = await db.collection('traderPassSubscriptions').get();
-      const subscribers = snap.docs.map(d => d.data() as TraderPassSubscription);
+      const [subsSnap, swapsSnap] = await Promise.all([
+        db.collection('traderPassSubscriptions').get(),
+        db.collection('batteryExchanges').get()
+      ]);
+
+      const subscribers = subsSnap.docs.map(d => d.data() as TraderPassSubscription);
+      const totalSwaps = swapsSnap.docs.length;
+      const activeSubs = subscribers.filter(s => s.subscription_status === 'ACTIVE');
+
+      const passCatalog = [
+        {
+          id: 'TRADER',
+          name: 'Trader Pass',
+          price_monthly: 20.00,
+          tagline: 'The all-inclusive essential delivery pass',
+          description: '$20 monthly essential store credit, waived $5 bicycle delivery on all 247 orders, priority dispatch.',
+          credit_monthly: 20.00,
+          free_delivery: true,
+          battery_exchange: false
+        },
+        {
+          id: 'TESLA',
+          name: 'Tesla Pass',
+          price_monthly: 20.00,
+          tagline: '24/7 Hot-swap battery pack exchange network',
+          description: 'BYO battery pack exchange (2,000, 5,000, 10,000, and 20,000 mAh). Hand over dead pack, get a 100% charged full one instantly.',
+          credit_monthly: 0.00,
+          free_delivery: true,
+          battery_exchange: true,
+          supported_capacities: ['2000', '5000', '10000', '20000']
+        },
+        {
+          id: 'COMBO',
+          name: 'Combined Pass',
+          price_monthly: 30.00,
+          regular_price: 40.00,
+          savings_monthly: 10.00,
+          tagline: 'Both Trader & Tesla Passes bundled together',
+          description: 'All Trader Pass benefits ($20 monthly store credit + free delivery) PLUS unlimited Tesla battery pack exchanges (2k-20k mAh). Best value.',
+          credit_monthly: 20.00,
+          free_delivery: true,
+          battery_exchange: true,
+          supported_capacities: ['2000', '5000', '10000', '20000']
+        }
+      ];
 
       res.json({
         price_monthly: 20.00,
         subscribers,
-        active_count: subscribers.filter(s => s.subscription_status === 'ACTIVE').length
+        active_count: activeSubs.length,
+        trader_count: activeSubs.filter(s => !s.pass_type || s.pass_type === 'TRADER').length,
+        tesla_count: activeSubs.filter(s => s.pass_type === 'TESLA').length,
+        combo_count: activeSubs.filter(s => s.pass_type === 'COMBO').length,
+        total_battery_swaps: totalSwaps,
+        catalog: passCatalog
       });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -840,26 +1115,46 @@ async function startServer() {
   app.post('/api/trader-pass/subscribe', async (req: AuthenticatedRequest, res) => {
     try {
       const db = getFirestoreDb();
-      const { customer_id, customer_name, customer_email } = req.body;
+      const { customer_id, customer_name, customer_email, pass_type, registered_capacities } = req.body;
       const subId = `sub-${Date.now()}`;
+      const tier: PassTier = pass_type === 'TESLA' || pass_type === 'COMBO' ? pass_type : 'TRADER';
+
+      let priceMonthly = 20.00;
+      let monthlyCredit = 20.00;
+
+      if (tier === 'TESLA') {
+        priceMonthly = 20.00;
+        monthlyCredit = 0.00;
+      } else if (tier === 'COMBO') {
+        priceMonthly = 30.00;
+        monthlyCredit = 20.00;
+      }
+
       const newSub: TraderPassSubscription = {
         id: subId,
         customer_id: req.user?.uid || customer_id || `cust-${Date.now()}`,
-        customer_name: customer_name || req.user?.profile?.display_name || 'Trader Pass Member',
+        customer_name: customer_name || req.user?.profile?.display_name || 'Pass Member',
         customer_email: customer_email || req.user?.email || 'member@manchester.net',
         subscription_status: 'ACTIVE',
-        price_monthly: 20.00,
+        pass_type: tier,
+        price_monthly: priceMonthly,
         start_date: new Date().toISOString(),
         renewal_date: new Date(Date.now() + 30 * 86400000).toISOString(),
-        monthly_credit: 20.00,
+        monthly_credit: monthlyCredit,
         credit_used: 0.00,
-        credit_remaining: 20.00,
+        credit_remaining: monthlyCredit,
         member_savings_total: 0.00,
-        member_orders_count: 0
+        member_orders_count: 0,
+        battery_exchanges_count: 0,
+        registered_battery_capacities: registered_capacities || ['5000', '10000']
       };
 
       await db.collection('traderPassSubscriptions').doc(subId).set(newSub);
-      await addAuditLog(req.user?.email || 'Customer', 'SUBSCRIPTION_CREATED', `Trader Pass for ${newSub.customer_name}`);
+      await addAuditLog(
+        req.user?.email || 'Customer',
+        'SUBSCRIPTION_CREATED',
+        `${tier} Pass for ${newSub.customer_name} ($${priceMonthly.toFixed(2)}/mo)`
+      );
       res.status(201).json(newSub);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -878,14 +1173,424 @@ async function startServer() {
 
       const sub = doc.data() as TraderPassSubscription;
       const oldStatus = sub.subscription_status;
-      sub.subscription_status = req.body.subscription_status;
-      if (req.body.subscription_status === 'CANCELLED') {
-        sub.cancellation_date = new Date().toISOString();
+      const oldTier = sub.pass_type || 'TRADER';
+
+      if (req.body.subscription_status) {
+        sub.subscription_status = req.body.subscription_status;
+        if (req.body.subscription_status === 'CANCELLED') {
+          sub.cancellation_date = new Date().toISOString();
+        }
+      }
+
+      // Allow switching or upgrading pass tiers (e.g. TRADER -> COMBO or TESLA -> COMBO)
+      if (req.body.pass_type && req.body.pass_type !== sub.pass_type) {
+        const newTier: PassTier = req.body.pass_type;
+        sub.pass_type = newTier;
+        if (newTier === 'COMBO') {
+          sub.price_monthly = 30.00;
+          if (sub.monthly_credit === 0) {
+            sub.monthly_credit = 20.00;
+            sub.credit_remaining = Math.max(sub.credit_remaining, 20.00);
+          }
+        } else if (newTier === 'TESLA') {
+          sub.price_monthly = 20.00;
+        } else if (newTier === 'TRADER') {
+          sub.price_monthly = 20.00;
+          if (sub.monthly_credit === 0) {
+            sub.monthly_credit = 20.00;
+            sub.credit_remaining = 20.00;
+          }
+        }
+      }
+
+      if (req.body.registered_battery_capacities) {
+        sub.registered_battery_capacities = req.body.registered_battery_capacities;
       }
 
       await docRef.set(sub);
-      await addAuditLog(req.user?.email || 'Member Admin', 'SUBSCRIPTION_UPDATE', `Trader Pass ${sub.id}`, oldStatus, sub.subscription_status);
+      await addAuditLog(
+        req.user?.email || 'Member Admin',
+        'SUBSCRIPTION_UPDATE',
+        `Pass ${sub.id} (Tier: ${oldTier}->${sub.pass_type || 'TRADER'}, Status: ${oldStatus}->${sub.subscription_status})`
+      );
       res.json(sub);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // TESLA BATTERY PACK EXCHANGE ENDPOINTS
+  app.get('/api/battery-exchange/history', async (req, res) => {
+    try {
+      const db = getFirestoreDb();
+      const snap = await db.collection('batteryExchanges').orderBy('created_at', 'desc').limit(50).get();
+      const exchanges = snap.docs.map(d => d.data() as BatteryExchangeRecord);
+      res.json(exchanges);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/battery-exchange/request', async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getFirestoreDb();
+      const {
+        customer_id,
+        customer_name,
+        customer_phone,
+        capacity,
+        exchange_type,
+        delivery_address,
+        notes
+      } = req.body;
+
+      if (!capacity || !['2000', '5000', '10000', '20000'].includes(capacity)) {
+        return res.status(400).json({ error: 'Valid pack capacity (2000, 5000, 10000, or 20000 mAh) required.' });
+      }
+
+      const swapId = `swap-${Date.now()}`;
+      const newSwap: BatteryExchangeRecord = {
+        id: swapId,
+        customer_id: req.user?.uid || customer_id || `cust-${Date.now()}`,
+        customer_name: customer_name || req.user?.profile?.display_name || 'Tesla Pass Member',
+        customer_phone: customer_phone || '(603) 555-0199',
+        capacity: capacity as any,
+        exchange_type: exchange_type || 'DELIVERY_DISPATCH',
+        status: exchange_type === 'STREET_SWAP' || exchange_type === 'HUB_WALKUP' ? 'COMPLETED' : 'REQUESTED',
+        created_at: new Date().toISOString(),
+        completed_at: exchange_type === 'STREET_SWAP' || exchange_type === 'HUB_WALKUP' ? new Date().toISOString() : undefined,
+        delivery_address: delivery_address || '875 Elm St, Manchester, NH',
+        pack_serial: `TSL-${Math.round(parseInt(capacity) / 1000)}K-${Math.floor(100 + Math.random() * 900)}`,
+        notes: notes || 'BYO Pack Swap: hand over dead pack, receive 100% full pack'
+      };
+
+      await db.collection('batteryExchanges').doc(swapId).set(newSwap);
+
+      // Increment battery exchange count on user's active pass if available
+      try {
+        const subSnap = await db.collection('traderPassSubscriptions')
+          .where('customer_id', '==', newSwap.customer_id)
+          .where('subscription_status', '==', 'ACTIVE')
+          .limit(1)
+          .get();
+        if (!subSnap.empty) {
+          const subDoc = subSnap.docs[0];
+          const subData = subDoc.data() as TraderPassSubscription;
+          await subDoc.ref.update({
+            battery_exchanges_count: (subData.battery_exchanges_count || 0) + 1
+          });
+        }
+      } catch (subErr) {
+        console.warn('Could not update subscriber battery exchange count:', subErr);
+      }
+
+      // Broadcast alert to active couriers on the network
+      broadcastLiveMessage({
+        type: 'DISPATCH_PING',
+        payload: {
+          title: 'Tesla Battery Hot-Swap Alert',
+          message: `${capacity} mAh pack swap at ${newSwap.delivery_address || 'Manchester'}`,
+          orderId: swapId
+        },
+        timestamp: new Date().toISOString()
+      });
+
+      await addAuditLog(
+        req.user?.email || newSwap.customer_name,
+        'BATTERY_SWAP_REQUESTED',
+        `${capacity} mAh battery swap for ${newSwap.customer_name} (${newSwap.exchange_type})`
+      );
+
+      res.status(201).json(newSwap);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.patch('/api/battery-exchange/:id/status', async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getFirestoreDb();
+      const docRef = db.collection('batteryExchanges').doc(req.params.id);
+      const doc = await docRef.get();
+
+      if (!doc.exists) {
+        return res.status(404).json({ error: 'Battery exchange record not found' });
+      }
+
+      const swap = doc.data() as BatteryExchangeRecord;
+      const { status, rider_id, rider_name, notes } = req.body;
+
+      if (status) swap.status = status;
+      if (rider_id) swap.rider_id = rider_id;
+      if (rider_name) swap.rider_name = rider_name;
+      if (notes) swap.notes = notes;
+      if (status === 'COMPLETED') {
+        swap.completed_at = new Date().toISOString();
+      }
+
+      await docRef.set(swap);
+      await addAuditLog(
+        req.user?.email || 'Rider',
+        'BATTERY_SWAP_STATUS',
+        `Swap ${swap.id} status changed to ${swap.status}`
+      );
+      res.json(swap);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // BATTERY HUBS & AVAILABILITY ENDPOINTS
+  app.get('/api/battery-hubs', async (req, res) => {
+    try {
+      const db = getFirestoreDb();
+      let snap = await db.collection('batteryHubs').get();
+      
+      if (snap.empty) {
+        // Seed initial battery hubs
+        const batch = db.batch();
+        for (const hub of INITIAL_BATTERY_HUBS) {
+          batch.set(db.collection('batteryHubs').doc(hub.id), hub);
+        }
+        await batch.commit();
+        snap = await db.collection('batteryHubs').get();
+      }
+
+      const hubs = snap.docs.map(d => d.data() as BatteryHub);
+      res.json(hubs);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/battery-reservations', async (req, res) => {
+    try {
+      const db = getFirestoreDb();
+      let snap = await db.collection('batteryReservations').orderBy('created_at', 'desc').get();
+
+      if (snap.empty) {
+        const batch = db.batch();
+        for (const r of INITIAL_BATTERY_RESERVATIONS) {
+          batch.set(db.collection('batteryReservations').doc(r.id), r);
+        }
+        await batch.commit();
+        snap = await db.collection('batteryReservations').orderBy('created_at', 'desc').get();
+      }
+
+      const reservations = snap.docs.map(d => d.data() as BatteryReservation);
+      res.json(reservations);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/battery-reservations/reserve', async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getFirestoreDb();
+      const {
+        hub_id,
+        capacity,
+        hold_duration_minutes = 30,
+        pickup_mode = 'HUB_WALKUP',
+        notes = '',
+        customer_name,
+        customer_phone
+      } = req.body;
+
+      if (!hub_id || !capacity) {
+        return res.status(400).json({ error: 'Hub ID and battery capacity are required' });
+      }
+
+      const hubRef = db.collection('batteryHubs').doc(hub_id);
+      const hubDoc = await hubRef.get();
+
+      if (!hubDoc.exists) {
+        return res.status(404).json({ error: 'Battery Hub not found' });
+      }
+
+      const hubData = hubDoc.data() as BatteryHub;
+      const validCap = capacity as '2000' | '5000' | '10000' | '20000';
+      const available = hubData.available_packs[validCap] || 0;
+
+      if (available <= 0) {
+        return res.status(400).json({ error: `No ${validCap} mAh packs currently available at this hub` });
+      }
+
+      // Decrement inventory at hub
+      const updatedPacks = {
+        ...hubData.available_packs,
+        [validCap]: available - 1
+      };
+      const updatedTotal = Object.values(updatedPacks).reduce((sum, count) => sum + count, 0);
+
+      await hubRef.update({
+        available_packs: updatedPacks,
+        total_available: updatedTotal
+      });
+
+      const resId = `res-${Date.now()}`;
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + hold_duration_minutes * 60 * 1000);
+      const lockerBay = Math.floor(1 + Math.random() * 12);
+      const randomCodeSuffix = Math.floor(1000 + Math.random() * 9000);
+
+      const reservation: BatteryReservation = {
+        id: resId,
+        reservation_code: `TSL-RES-${randomCodeSuffix}`,
+        hub_id: hubData.id,
+        hub_name: hubData.name,
+        hub_address: hubData.address,
+        capacity: validCap,
+        customer_id: req.user?.uid || `cust-${Date.now()}`,
+        customer_name: customer_name || req.user?.profile?.display_name || 'Tesla Pass Member',
+        customer_phone: customer_phone || '(603) 555-0199',
+        status: 'ACTIVE',
+        created_at: now.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        hold_duration_minutes,
+        pickup_mode,
+        locker_bay_number: lockerBay,
+        pack_serial: `TSL-${Math.round(parseInt(validCap) / 1000)}K-${Math.floor(100 + Math.random() * 900)}`,
+        notes: notes || 'BYO pack ready for exchange'
+      };
+
+      await db.collection('batteryReservations').doc(resId).set(reservation);
+
+      // Broadcast alert
+      broadcastLiveMessage({
+        type: 'DISPATCH_PING',
+        payload: {
+          title: 'Battery Pack Reserved',
+          message: `${validCap} mAh reserved at ${hubData.name} (${pickup_mode === 'HUB_WALKUP' ? 'Station #' + lockerBay : 'Courier Dispatch'})`,
+          reservationId: resId
+        },
+        timestamp: now.toISOString()
+      });
+
+      await addAuditLog(
+        req.user?.email || reservation.customer_name,
+        'BATTERY_RESERVED',
+        `Reserved ${validCap} mAh at ${hubData.name} (Code: ${reservation.reservation_code})`
+      );
+
+      res.status(201).json({
+        reservation,
+        hub: {
+          ...hubData,
+          available_packs: updatedPacks,
+          total_available: updatedTotal
+        }
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/battery-reservations/:id/cancel', async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getFirestoreDb();
+      const resRef = db.collection('batteryReservations').doc(req.params.id);
+      const resDoc = await resRef.get();
+
+      if (!resDoc.exists) {
+        return res.status(404).json({ error: 'Reservation not found' });
+      }
+
+      const reservation = resDoc.data() as BatteryReservation;
+      if (reservation.status !== 'ACTIVE') {
+        return res.status(400).json({ error: `Reservation is already ${reservation.status}` });
+      }
+
+      reservation.status = 'CANCELLED';
+      await resRef.update({ status: 'CANCELLED' });
+
+      // Return pack to hub inventory
+      const hubRef = db.collection('batteryHubs').doc(reservation.hub_id);
+      const hubDoc = await hubRef.get();
+      if (hubDoc.exists) {
+        const hubData = hubDoc.data() as BatteryHub;
+        const currentCount = hubData.available_packs[reservation.capacity] || 0;
+        const updatedPacks = {
+          ...hubData.available_packs,
+          [reservation.capacity]: currentCount + 1
+        };
+        const updatedTotal = Object.values(updatedPacks).reduce((sum, count) => sum + count, 0);
+        await hubRef.update({
+          available_packs: updatedPacks,
+          total_available: updatedTotal
+        });
+      }
+
+      await addAuditLog(
+        req.user?.email || reservation.customer_name,
+        'BATTERY_RESERVATION_CANCELLED',
+        `Cancelled reservation ${reservation.reservation_code}`
+      );
+
+      res.json({ success: true, reservation });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/battery-reservations/:id/claim', async (req: AuthenticatedRequest, res) => {
+    try {
+      const db = getFirestoreDb();
+      const resRef = db.collection('batteryReservations').doc(req.params.id);
+      const resDoc = await resRef.get();
+
+      if (!resDoc.exists) {
+        return res.status(404).json({ error: 'Reservation not found' });
+      }
+
+      const reservation = resDoc.data() as BatteryReservation;
+      reservation.status = 'COLLECTED';
+      await resRef.update({ status: 'COLLECTED' });
+
+      // Create completed battery exchange record
+      const swapId = `swap-${Date.now()}`;
+      const exchange: BatteryExchangeRecord = {
+        id: swapId,
+        customer_id: reservation.customer_id,
+        customer_name: reservation.customer_name,
+        customer_phone: reservation.customer_phone,
+        capacity: reservation.capacity,
+        exchange_type: reservation.pickup_mode === 'HUB_WALKUP' ? 'HUB_WALKUP' : 'DELIVERY_DISPATCH',
+        status: 'COMPLETED',
+        created_at: reservation.created_at,
+        completed_at: new Date().toISOString(),
+        delivery_address: reservation.hub_address,
+        pack_serial: reservation.pack_serial || `TSL-${reservation.capacity}-OK`,
+        notes: `Claimed from ${reservation.hub_name} (${reservation.pickup_mode === 'HUB_WALKUP' ? 'Hub Station #' + (reservation.locker_bay_number || 1) : 'Courier Dispatch'})`
+      };
+
+      await db.collection('batteryExchanges').doc(swapId).set(exchange);
+
+      // Increment pass count if active subscriber
+      try {
+        const subSnap = await db.collection('traderPassSubscriptions')
+          .where('customer_id', '==', reservation.customer_id)
+          .where('subscription_status', '==', 'ACTIVE')
+          .limit(1)
+          .get();
+        if (!subSnap.empty) {
+          const subDoc = subSnap.docs[0];
+          const subData = subDoc.data() as TraderPassSubscription;
+          await subDoc.ref.update({
+            battery_exchanges_count: (subData.battery_exchanges_count || 0) + 1
+          });
+        }
+      } catch (err) {
+        console.warn('Could not update subscriber exchange count:', err);
+      }
+
+      await addAuditLog(
+        req.user?.email || reservation.customer_name,
+        'BATTERY_RESERVATION_COLLECTED',
+        `Claimed pack ${reservation.pack_serial} at ${reservation.hub_name}`
+      );
+
+      res.json({ success: true, exchange, reservation });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -1521,7 +2226,7 @@ async function startServer() {
         });
       }
 
-      const systemPrompt = `You are "SEND TRADER", the intelligent order assistant for 247 in Manchester, New Hampshire.
+      const systemPrompt = `You are "SEND RIDER", the intelligent order assistant for 247 in Manchester, New Hampshire.
 247 is a 24/7/365 bicycle-and-cargo-cart mobile retail and essential-supply delivery service.
 Rules:
 1. Interpret the user's natural language request.
@@ -1602,7 +2307,7 @@ Rules:
 
       const storeContext = {
         service_name: '247',
-        tagline: 'NEED SOMETHING? TRADER ROLLS.',
+        tagline: 'NEED SOMETHING? RIDERS ROLL OUT.',
         city: 'Manchester, New Hampshire',
         delivery_speed: 'Target delivery ≤60 minutes (often 25-40 min)',
         hours: '24/7/365 rain, snow, or heat',
@@ -1640,6 +2345,7 @@ Rules:
 Answer clearly, concisely, and honestly using only current store data.
 Tone: Street-level, reliable, respectful, concise.
 Do not invent product inventory or legal claims.
+Customers can always call the owner/dispatch directly on their phone at (603) 555-0199 to speak with them immediately.
 If asked about emergency medical care, direct them to emergency services (911 / CMC / Elliott).`
         }
       });
@@ -1674,7 +2380,6 @@ If asked about emergency medical care, direct them to emergency services (911 / 
 
   // VITE MIDDLEWARE (Development) or STATIC SERVE (Production)
   if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa'
@@ -1691,6 +2396,10 @@ If asked about emergency medical care, direct them to emergency services (911 / 
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`247 Mobile Micro-Store Operating System live on http://0.0.0.0:${PORT}`);
   });
+
+  // Attach WebSocket server for real-time live map location broadcasting across devices
+  setupWebSocketServer(server);
+  console.log(`247 Live Location WebSocket server attached on /ws and /ws/locations`);
 
   const shutdown = () => {
     server.close(() => {

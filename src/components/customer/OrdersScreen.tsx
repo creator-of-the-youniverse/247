@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { Order, OrderStatus } from '../../types';
+import { OrderJourneyProgressMap } from './OrderJourneyProgressMap';
+import { useLiveLocations } from '../../context/LiveLocationContext';
 import { 
   Clock, 
   Bike, 
@@ -11,7 +13,9 @@ import {
   ChevronRight, 
   Package, 
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  Plus,
+  Radio
 } from 'lucide-react';
 
 const STATUS_STEPS: { key: OrderStatus; label: string }[] = [
@@ -25,8 +29,10 @@ const STATUS_STEPS: { key: OrderStatus; label: string }[] = [
 ];
 
 export const OrdersScreen: React.FC = () => {
-  const { orders, currentOrder, setCurrentOrder, updateOrderStatus, demoMode } = useStore();
+  const { orders, currentOrder, setCurrentOrder, updateOrderStatus, demoMode, addMockDelivery } = useStore();
+  const { isBroadcasting, startBroadcasting, stopBroadcasting, locations } = useLiveLocations();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(currentOrder || orders[0] || null);
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
     if (currentOrder) {
@@ -54,20 +60,56 @@ export const OrdersScreen: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
-      <div>
-        <h1 className="font-display font-black text-2xl text-white uppercase tracking-wider">
-          Delivery Orders
-        </h1>
-        <p className="text-xs text-stone-400 font-mono-code">
-          Live bicycle dispatch tracking across Manchester streets
-        </p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="font-display font-black text-2xl text-white uppercase tracking-wider">
+            Delivery Orders
+          </h1>
+          <p className="text-xs text-stone-400 font-mono-code">
+            Live bicycle dispatch tracking across Manchester streets
+          </p>
+        </div>
+        <button
+          onClick={async () => {
+            setIsAdding(true);
+            try {
+              const order = await addMockDelivery();
+              setSelectedOrder(order);
+            } finally {
+              setIsAdding(false);
+            }
+          }}
+          disabled={isAdding}
+          className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-mono-code font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>{isAdding ? 'Dispatching...' : 'Add Mock Delivery'}</span>
+        </button>
       </div>
 
       {orders.length === 0 ? (
-        <div className="p-8 text-center bg-stone-900 border border-stone-800 rounded-2xl text-stone-400 space-y-2">
+        <div className="p-8 text-center bg-stone-900 border border-stone-800 rounded-2xl text-stone-400 space-y-4">
           <Package className="w-10 h-10 mx-auto text-stone-600" />
-          <p className="font-mono-code text-sm text-stone-300">No orders active or historic.</p>
-          <p className="text-xs text-stone-500">Orders placed will appear here with live countdown timers.</p>
+          <div>
+            <p className="font-mono-code text-sm text-stone-300">No orders active or historic.</p>
+            <p className="text-xs text-stone-500">Orders placed or dispatched will appear here with live countdown timers.</p>
+          </div>
+          <button
+            onClick={async () => {
+              setIsAdding(true);
+              try {
+                const order = await addMockDelivery();
+                setSelectedOrder(order);
+              } finally {
+                setIsAdding(false);
+              }
+            }}
+            disabled={isAdding}
+            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-mono-code font-bold text-xs flex items-center gap-2 transition-colors mx-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Mock Delivery</span>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -165,6 +207,12 @@ export const OrdersScreen: React.FC = () => {
                     <span>Call Rider</span>
                   </a>
                 </div>
+
+                {/* Real-time Journey Progress Map */}
+                <OrderJourneyProgressMap
+                  order={selectedOrder}
+                  onCallRider={() => window.open('tel:6035550199', '_self')}
+                />
 
                 {/* Delivery Location & Instructions */}
                 <div className="bg-stone-950 p-3.5 rounded-xl border border-stone-800 space-y-1.5 text-xs font-mono-code">

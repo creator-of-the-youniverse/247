@@ -16,19 +16,19 @@ import { api } from '../services/api';
 export const DEMO_IDENTITIES: Record<UserRole, { uid: string; email: string; name: string; role: UserRole }> = {
   CUSTOMER: {
     uid: 'demo-customer-uid',
-    email: 'customer@trader24.net',
+    email: 'customer@247.delivery',
     name: 'Customer Member',
     role: 'CUSTOMER'
   },
   RIDER: {
     uid: 'demo-rider-uid',
-    email: 'rider@trader24.net',
+    email: 'rider@247.delivery',
     name: 'Cargo Rider 1',
     role: 'RIDER'
   },
   ADMIN: {
     uid: 'demo-admin-uid',
-    email: 'admin@trader24.net',
+    email: 'admin@247.delivery',
     name: 'Admin Controller',
     role: 'ADMIN'
   }
@@ -129,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Check if a demo session exists in localStorage
-    const savedDemoSession = localStorage.getItem('trader24_demo_session');
+    const savedDemoSession = localStorage.getItem('247_demo_session') || localStorage.getItem('trader24_demo_session');
     if (savedDemoSession) {
       try {
         const parsed = JSON.parse(savedDemoSession);
@@ -151,6 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (e) {
         console.warn('Failed to parse saved demo session:', e);
+        localStorage.removeItem('247_demo_session');
         localStorage.removeItem('trader24_demo_session');
       }
     }
@@ -158,6 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         // Firebase auth user takes precedence over demo session
+        localStorage.removeItem('247_demo_session');
         localStorage.removeItem('trader24_demo_session');
         setCurrentUser(user);
         try {
@@ -172,7 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else {
         // Only clear if no demo session active
-        const hasDemoSession = localStorage.getItem('trader24_demo_session');
+        const hasDemoSession = localStorage.getItem('247_demo_session') || localStorage.getItem('trader24_demo_session');
         if (!hasDemoSession) {
           setCurrentUser(null);
           setProfile(null);
@@ -296,6 +298,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } as unknown as User;
 
       // Persist demo session so refresh preserves state
+      localStorage.setItem('247_demo_session', JSON.stringify({ token: demoToken, profile: demoProfile }));
       localStorage.setItem('trader24_demo_session', JSON.stringify({ token: demoToken, profile: demoProfile }));
 
       api.setAuthToken(demoToken);
@@ -310,6 +313,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (synced) {
           setProfile(synced);
           setRole(synced.role || demoRole);
+          localStorage.setItem('247_demo_session', JSON.stringify({ token: demoToken, profile: synced }));
           localStorage.setItem('trader24_demo_session', JSON.stringify({ token: demoToken, profile: synced }));
           return synced;
         }
@@ -326,6 +330,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setLoading(true);
     try {
+      localStorage.removeItem('247_demo_session');
       localStorage.removeItem('trader24_demo_session');
       try {
         await firebaseSignOut(auth);

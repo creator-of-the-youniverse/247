@@ -81,7 +81,7 @@ export const SendTraderScreen: React.FC<SendTraderScreenProps> = ({ isOpen, onCl
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-display font-black text-base text-white uppercase tracking-wider">
-                  SEND TRADER
+                  SEND RIDER
                 </h2>
                 <span className="text-[10px] bg-amber-400 text-stone-950 font-bold px-1.5 py-0.2 rounded font-mono-code">AI DISPATCH</span>
               </div>
