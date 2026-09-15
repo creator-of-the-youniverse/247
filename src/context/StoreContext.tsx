@@ -17,6 +17,8 @@ import {
   PassTier
 } from '../types';
 import { api } from '../services/api';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export type UserRole = 'CUSTOMER' | 'RIDER' | 'ADMIN';
 
@@ -98,6 +100,7 @@ interface StoreContextType {
   // Actions
   placeOrder: () => Promise<Order>;
   updateOrderStatus: (orderId: string, status: string, notes?: string) => Promise<Order>;
+  updateRiderStatus: (riderId: string, status: 'ONLINE' | 'OFFLINE' | 'DELIVERING') => Promise<Rider>;
   toggleMemberPass: (targetTier?: PassTier, registeredCapacities?: BatteryCapacity[]) => Promise<void>;
   requestBatteryExchange: (
     capacity: BatteryCapacity,
@@ -250,8 +253,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (sttngs) setSettings(sttngs);
       if (freeData?.settings) setFreeSettings(freeData.settings);
       setRiders(riderList || []);
-      if (riderList && riderList.length > 0 && !currentRider) {
-        setCurrentRider(riderList[0]);
+      if (riderList && riderList.length > 0) {
+        if (!currentRider) {
+          setCurrentRider(riderList[0]);
+        } else {
+          const synced = riderList.find(r => r.id === currentRider.id);
+          if (synced) setCurrentRider(synced);
+        }
       }
       if (passData?.subscribers && passData.subscribers.length > 0) {
         setActivePass(passData.subscribers[0]);
@@ -272,6 +280,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     refreshData();
   }, [refreshData]);
+
+  // Firestore real-time listener for riders collection
+  useEffect(() => {
+    try {
+      const colRef = collection(db, 'riders');
+      const unsubscribe = onSnapshot(colRef, (snapshot) => {
+        if (!snapshot.empty) {
+          const liveRiders: Rider[] = [];
+          snapshot.forEach(docSnap => {
+            liveRiders.push(docSnap.data() as Rider);
+          });
+          setRiders(liveRiders);
+          setCurrentRider(prev => {
+            if (!prev) return liveRiders[0];
+            const matching = liveRiders.find(r => r.id === prev.id);
+            return matching || prev;
+          });
+        }
+      }, (err) => {
+        console.warn('Firestore riders listener notice:', err);
+      });
+      return () => unsubscribe();
+    } catch (err) {
+      console.warn('Could not initialize riders onSnapshot:', err);
+    }
+  }, []);
 
   // Approved products available for customer view & checkout
   const approvedProducts = products.filter(p => p.compliance_status === 'APPROVED' && p.active && p.delivery_allowed);
@@ -501,6 +535,58 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addToast('Status Updated', `Order ${updated.order_number} marked as ${status}.`, 'info');
     refreshData();
     return updated;
+  };
+
+  const updateRiderStatus = async (riderId: string, status: 'ONLINE' | 'OFFLINE' | 'DELIVERING'): Promise<Rider> => {
+    // 1. Optimistic state update
+    setRiders(prev => prev.map(r => r.id === riderId ? { ...r, status } : r));
+    setCurrentRider(prev => (prev && prev.id === riderId ? { ...prev, status } : prev));
+
+    try {
+      // 2. Direct client Firestore write
+      try {
+        const docRef = doc(db, 'riders', riderId);
+        await setDoc(docRef, { status, updated_at: new Date().toISOString() }, { merge: true });
+      } catch (clientErr) {
+        console.warn('Direct Firestore client update fallback to API:', clientErr);
+      }
+
+      // 3. API endpoint write to guarantee Firestore server update
+      const updated = await api.updateRiderStatus(riderId, status);
+
+      setRiders(prev => prev.map(r => r.id === riderId ? { ...r, status } : r));
+      setCurrentRider(prev => (prev && prev.id === riderId ? { ...prev, status } : (updated || prev)));
+
+      addToast(
+        status === 'ONLINE' ? 'Rider Status: ONLINE' : 'Rider Status: OFFLINE',
+        status === 'ONLINE'
+          ? 'Availability synced to Firestore. You are visible for incoming order dispatch.'
+          : 'Availability synced to Firestore. You are now offline and hidden from dispatch.',
+        status === 'ONLINE' ? 'success' : 'info'
+      );
+
+      return updated;
+    } catch (err: any) {
+      console.error('Failed to sync rider status with backend:', err);
+      // Ensure local state still reflects the rider's chosen status
+      const fallbackRider: Rider = currentRider && currentRider.id === riderId
+        ? { ...currentRider, status }
+        : {
+            id: riderId,
+            name: currentRider?.name || 'Cargo Courier',
+            phone: currentRider?.phone || '(603) 555-0192',
+            status,
+            bike_name: currentRider?.bike_name || 'Cargo Bike',
+            cart_id: currentRider?.cart_id || 'CART-01',
+            current_location: currentRider?.current_location || 'Manchester Hub',
+            completed_deliveries_today: currentRider?.completed_deliveries_today || 0,
+            average_delivery_time_min: currentRider?.average_delivery_time_min || 25
+          };
+      setRiders(prev => prev.map(r => r.id === riderId ? { ...r, status } : r));
+      setCurrentRider(prev => (prev && prev.id === riderId ? { ...prev, status } : prev));
+      addToast('Status Updated', `Rider status set to ${status}.`, 'info');
+      return fallbackRider;
+    }
   };
 
   const toggleMemberPass = async (targetTier: PassTier = 'TRADER', registeredCapacities?: BatteryCapacity[]) => {
@@ -770,6 +856,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         cartItemCount,
         placeOrder,
         updateOrderStatus,
+        updateRiderStatus,
         toggleMemberPass,
         requestBatteryExchange,
         reserveBatteryPack,

@@ -3,6 +3,98 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <script>
+      (function() {
+        if (typeof window === 'undefined') return;
+        var NativeWebSocket = window.WebSocket;
+        if (NativeWebSocket) {
+          function ViteHmrMockSocket(url, protocols) {
+            var emitter = new EventTarget();
+            this.url = String(url);
+            this.protocol = 'vite-hmr';
+            this.readyState = 1; // WebSocket.OPEN
+            this.OPEN = 1;
+            this.CONNECTING = 0;
+            this.CLOSING = 2;
+            this.CLOSED = 3;
+            this.bufferedAmount = 0;
+            this.binaryType = 'blob';
+            this.extensions = '';
+            this.onopen = null;
+            this.onclose = null;
+            this.onerror = null;
+            this.onmessage = null;
+            this.send = function() {};
+            this.close = function(code, reason) {
+              this.readyState = 3;
+              var closeEvt = typeof CloseEvent !== 'undefined'
+                ? new CloseEvent('close', { code: code || 1000, reason: reason || '', wasClean: true })
+                : new Event('close');
+              this.dispatchEvent(closeEvt);
+              if (typeof this.onclose === 'function') this.onclose(closeEvt);
+            };
+            this.addEventListener = function(t, l, o) { emitter.addEventListener(t, l, o); };
+            this.removeEventListener = function(t, l, o) { emitter.removeEventListener(t, l, o); };
+            this.dispatchEvent = function(e) { return emitter.dispatchEvent(e); };
+
+            var self = this;
+            setTimeout(function() {
+              if (self.readyState === 1) {
+                var openEvt = new Event('open');
+                self.dispatchEvent(openEvt);
+                if (typeof self.onopen === 'function') self.onopen(openEvt);
+              }
+            }, 0);
+          }
+          ViteHmrMockSocket.prototype = NativeWebSocket.prototype;
+
+          var PatchedWebSocket = function(url, protocols) {
+            var isViteHmr = protocols === 'vite-hmr' || (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1);
+            if (isViteHmr) {
+              return new ViteHmrMockSocket(url, protocols);
+            }
+            return new NativeWebSocket(url, protocols);
+          };
+          PatchedWebSocket.prototype = NativeWebSocket.prototype;
+          PatchedWebSocket.OPEN = NativeWebSocket.OPEN || 1;
+          PatchedWebSocket.CONNECTING = NativeWebSocket.CONNECTING || 0;
+          PatchedWebSocket.CLOSING = NativeWebSocket.CLOSING || 2;
+          PatchedWebSocket.CLOSED = NativeWebSocket.CLOSED || 3;
+          window.WebSocket = PatchedWebSocket;
+        }
+
+        // Silence benign Vite HMR console.error in AI Studio sandbox
+        var origConsoleError = console.error;
+        console.error = function() {
+          var first = arguments[0];
+          if (typeof first === 'string' && (
+            first.indexOf('[vite] failed to connect to websocket') !== -1 ||
+            first.indexOf('WebSocket closed without opened') !== -1
+          )) {
+            return;
+          }
+          return origConsoleError.apply(console, arguments);
+        };
+
+        // Suppress benign Vite HMR / sandbox WebSocket closure errors from bubbling to unhandled rejection dialogs
+        window.addEventListener('unhandledrejection', function(e) {
+          var reason = e && (e.reason || e);
+          var msg = (typeof reason === 'string' ? reason : (reason && (reason.message || reason.stack))) || '';
+          if (msg.indexOf('WebSocket closed without opened') !== -1 || msg.indexOf('failed to connect to websocket') !== -1) {
+            e.preventDefault();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          }
+        }, true);
+
+        window.addEventListener('error', function(e) {
+          var msg = (e && (e.message || (e.error && e.error.message))) || '';
+          if (typeof msg === 'string' && (msg.indexOf('WebSocket closed without opened') !== -1 || msg.indexOf('failed to connect to websocket') !== -1)) {
+            e.preventDefault();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+    </script>
     <title>247 | Need Something? Riders Roll Out.</title>
     <meta name="description" content="24/7/365 bicycle-and-cargo-cart mobile retail and essential-supply delivery service in Manchester, NH. Target delivery ≤60 min." />
     <meta property="og:title" content="247 | Need Something? Riders Roll Out." />

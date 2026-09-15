@@ -21,7 +21,12 @@ import {
   X,
   Signal,
   BatteryCharging,
-  Battery
+  Battery,
+  Power,
+  PowerOff,
+  Check,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useLiveLocations } from '../../context/LiveLocationContext';
 import { api } from '../../services/api';
@@ -30,7 +35,8 @@ export const RiderCockpit: React.FC = () => {
   const { 
     orders, 
     products, 
-    updateOrderStatus, 
+    updateOrderStatus,
+    updateRiderStatus,
     currentRider, 
     setCurrentRider, 
     riders,
@@ -43,6 +49,7 @@ export const RiderCockpit: React.FC = () => {
   } = useStore();
 
   const [isAddingMock, setIsAddingMock] = useState(false);
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
   const {
     locations,
@@ -50,6 +57,7 @@ export const RiderCockpit: React.FC = () => {
     isBroadcasting,
     startBroadcasting,
     stopBroadcasting,
+    updateLocation,
     latestPing,
     dismissPing
   } = useLiveLocations();
@@ -60,8 +68,45 @@ export const RiderCockpit: React.FC = () => {
   const [problemModalOrder, setProblemModalOrder] = useState<Order | null>(null);
   const [problemReason, setProblemReason] = useState('');
 
-  const activeOrders = orders.filter(o => o.status !== 'DELIVERED' && o.status !== 'CANCELLED');
+  const isOnline = (currentRider?.status || 'ONLINE') === 'ONLINE';
+
+  const handleToggleOnlineOffline = async () => {
+    if (!currentRider) return;
+    setIsTogglingStatus(true);
+    const newStatus: 'ONLINE' | 'OFFLINE' = isOnline ? 'OFFLINE' : 'ONLINE';
+    try {
+      await updateRiderStatus(currentRider.id, newStatus);
+      updateLocation({
+        id: currentRider.id,
+        role: 'RIDER',
+        name: currentRider.name,
+        status: newStatus,
+        latitude: 42.9956,
+        longitude: -71.4548
+      });
+      if (newStatus === 'OFFLINE' && isBroadcasting) {
+        stopBroadcasting();
+      }
+    } catch (err: any) {
+      console.error('Failed to toggle rider status:', err);
+    } finally {
+      setIsTogglingStatus(false);
+    }
+  };
+
+  const allActiveOrders = orders.filter(o => o.status !== 'DELIVERED' && o.status !== 'CANCELLED');
   const completedOrders = orders.filter(o => o.status === 'DELIVERED');
+
+  // When ONLINE, rider is visible to dispatch and receives all active incoming orders.
+  // When OFFLINE, rider availability status in Firestore hides them from incoming dispatches.
+  // Only in-flight deliveries assigned to them remain visible so they can conclude ongoing drops.
+  const activeOrders = isOnline
+    ? allActiveOrders
+    : allActiveOrders.filter(
+        o => o.assigned_rider_id === currentRider?.id && ['OUT_FOR_DELIVERY', 'ARRIVING'].includes(o.status)
+      );
+
+  const hiddenIncomingCount = !isOnline ? allActiveOrders.length - activeOrders.length : 0;
   const activeRouteOrder = selectedOrderForRoute || activeOrders[0] || null;
 
   const getMinutesRemaining = (order: Order) => {
@@ -135,19 +180,49 @@ export const RiderCockpit: React.FC = () => {
       )}
 
       {/* Top Rider Status Card */}
-      <div className="p-4 bg-stone-900 border border-stone-800 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg">
+      <div className="p-4 bg-stone-900 border border-stone-800 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-lg">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-black text-xl shadow">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shadow transition-colors ${
+            isOnline ? 'bg-amber-500 text-stone-950' : 'bg-stone-800 text-stone-500 border border-stone-700'
+          }`}>
             <Bike className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-display font-extrabold text-base text-white uppercase">
-                {currentRider?.name || 'Rider 01 - Downtown Hub'}
+              {riders && riders.length > 1 ? (
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={currentRider?.id || ''}
+                    onChange={(e) => {
+                      const selected = riders.find(r => r.id === e.target.value);
+                      if (selected) setCurrentRider(selected);
+                    }}
+                    className="font-display font-extrabold text-sm text-white uppercase bg-stone-950 border border-stone-800 rounded-lg px-2.5 py-1 focus:outline-none focus:border-amber-500 cursor-pointer"
+                    title="Switch active courier profile to test availability"
+                  >
+                    {riders.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.status || 'ONLINE'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <span className="font-display font-extrabold text-base text-white uppercase">
+                  {currentRider?.name || 'Rider 01 - Downtown Hub'}
+                </span>
+              )}
+
+              {/* Status Badge */}
+              <span className={`text-[10px] px-2 py-0.5 rounded font-mono-code font-bold uppercase flex items-center gap-1 border transition-colors ${
+                isOnline
+                  ? 'bg-emerald-950 text-emerald-400 border-emerald-500/40'
+                  : 'bg-stone-950 text-stone-400 border-stone-700'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-stone-500'}`} />
+                <span>{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
               </span>
-              <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded font-mono-code font-bold">
-                ONLINE
-              </span>
+
               {/* WebSocket mesh status indicator */}
               <span className={`text-[10px] px-2 py-0.5 rounded font-mono-code font-bold uppercase flex items-center gap-1 ${
                 connectionStatus === 'connected'
@@ -155,17 +230,65 @@ export const RiderCockpit: React.FC = () => {
                   : 'bg-amber-950 text-amber-400 border border-amber-500/40'
               }`}>
                 <Signal className="w-3 h-3" />
-                <span>{connectionStatus === 'connected' ? 'GPS MESH SYNC' : 'POLLING'}</span>
+                <span>{connectionStatus === 'connected' ? 'GPS MESH' : 'POLLING'}</span>
               </span>
             </div>
-            <p className="text-xs text-stone-400 font-mono-code mt-0.5">
-              Unit: {currentRider?.vehicle_type || 'Cargo Cargo Bike + Trailer'} • Manchester, NH
+            <p className="text-xs text-stone-400 font-mono-code mt-1 flex items-center gap-1.5 flex-wrap">
+              <span>Unit: {currentRider?.vehicle_type || 'Cargo Bike + Trailer'}</span>
+              <span>•</span>
+              <span className={isOnline ? 'text-emerald-400' : 'text-stone-400'}>
+                {isOnline ? 'Visible for incoming orders' : 'Hidden from incoming orders in Firestore'}
+              </span>
             </p>
           </div>
         </div>
 
-        {/* GPS Broadcast Action Button */}
-        <div className="flex items-center gap-2">
+        {/* Right side controls: Online/Offline Toggle + GPS Broadcast */}
+        <div className="flex items-center flex-wrap gap-3">
+          {/* ONLINE / OFFLINE TOGGLE */}
+          <div className="flex items-center gap-2.5 bg-stone-950 border border-stone-800 rounded-xl p-1.5 px-3">
+            <div className="text-right">
+              <div className="text-[10px] font-mono-code uppercase font-bold text-stone-400 flex items-center gap-1 justify-end">
+                <span>AVAILABILITY</span>
+                {isOnline ? (
+                  <Eye className="w-3 h-3 text-emerald-400" />
+                ) : (
+                  <EyeOff className="w-3 h-3 text-stone-500" />
+                )}
+              </div>
+              <div className={`text-[11px] font-mono-code font-bold ${isOnline ? 'text-emerald-400' : 'text-stone-400'}`}>
+                {isOnline ? 'Online (Visible)' : 'Offline (Hidden)'}
+              </div>
+            </div>
+
+            <button
+              onClick={handleToggleOnlineOffline}
+              disabled={isTogglingStatus}
+              role="switch"
+              aria-checked={isOnline}
+              title={`Click to set status to ${isOnline ? 'OFFLINE' : 'ONLINE'} in Firestore store`}
+              className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 ease-in-out focus:outline-none ${
+                isOnline ? 'bg-emerald-600 border-emerald-500' : 'bg-stone-800 border-stone-700'
+              } ${isTogglingStatus ? 'opacity-60 cursor-wait' : ''}`}
+            >
+              <span className="sr-only">Toggle Online / Offline Status</span>
+              <span
+                className={`pointer-events-none flex items-center justify-center h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  isOnline ? 'translate-x-7 text-emerald-700' : 'translate-x-0 text-stone-600'
+                }`}
+              >
+                {isTogglingStatus ? (
+                  <RefreshCw className="w-3 h-3 animate-spin text-stone-700" />
+                ) : isOnline ? (
+                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                ) : (
+                  <PowerOff className="w-3 h-3" />
+                )}
+              </span>
+            </button>
+          </div>
+
+          {/* GPS Broadcast Action Button */}
           <button
             onClick={() => {
               if (isBroadcasting) {
@@ -189,50 +312,70 @@ export const RiderCockpit: React.FC = () => {
             title="Stream real GPS from your device to customers and admin"
           >
             <Radio className="w-4 h-4" />
-            <span>{isBroadcasting ? 'Broadcasting Device GPS' : 'Share My Live GPS'}</span>
+            <span className="hidden sm:inline">{isBroadcasting ? 'Broadcasting GPS' : 'Share My Live GPS'}</span>
           </button>
         </div>
 
         {/* Tab switcher */}
-        <div className="flex items-center bg-stone-950 p-1 rounded-xl border border-stone-800 text-xs font-mono-code font-bold">
-          <button
-            onClick={() => setActiveTab('DISPATCH')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${
-              activeTab === 'DISPATCH' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-white'
-            }`}
-          >
-            DISPATCH ({activeOrders.length})
-          </button>
-          <button
-            onClick={() => {
-              if (!selectedOrderForRoute && activeOrders.length > 0) {
-                setSelectedOrderForRoute(activeOrders[0]);
-              }
-              setActiveTab('ROUTE_MAP');
-            }}
-            className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
-              activeTab === 'ROUTE_MAP' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-white'
-            }`}
-          >
-            <Navigation className="w-3.5 h-3.5" />
-            <span>ROUTE MAP</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('CART_LOADOUT')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${
-              activeTab === 'CART_LOADOUT' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-white'
-            }`}
-          >
-            CART LOADOUT
-          </button>
-          <button
-            onClick={() => setActiveTab('SHIFT_STATS')}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${
-              activeTab === 'SHIFT_STATS' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-white'
-            }`}
-          >
-            STATS
-          </button>
+        <div className="w-full flex items-center justify-between border-t border-stone-800/80 pt-3 mt-1 flex-wrap gap-2">
+          <div className="flex items-center bg-stone-950 p-1 rounded-xl border border-stone-800 text-xs font-mono-code font-bold">
+            <button
+              onClick={() => setActiveTab('DISPATCH')}
+              className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+                activeTab === 'DISPATCH' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-white'
+              }`}
+            >
+              <span>DISPATCH</span>
+              <span className={`px-1.5 py-0.2 text-[10px] rounded font-bold ${
+                activeTab === 'DISPATCH' 
+                  ? 'bg-stone-950 text-amber-400' 
+                  : isOnline 
+                  ? 'bg-stone-800 text-stone-300' 
+                  : 'bg-stone-900 text-stone-500'
+              }`}>
+                {isOnline ? activeOrders.length : 'OFFLINE'}
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                if (!selectedOrderForRoute && activeOrders.length > 0) {
+                  setSelectedOrderForRoute(activeOrders[0]);
+                }
+                setActiveTab('ROUTE_MAP');
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+                activeTab === 'ROUTE_MAP' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-white'
+              }`}
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>ROUTE MAP</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('CART_LOADOUT')}
+              className={`px-3 py-1.5 rounded-lg transition-colors ${
+                activeTab === 'CART_LOADOUT' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-white'
+              }`}
+            >
+              CART LOADOUT
+            </button>
+            <button
+              onClick={() => setActiveTab('SHIFT_STATS')}
+              className={`px-3 py-1.5 rounded-lg transition-colors ${
+                activeTab === 'SHIFT_STATS' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-white'
+              }`}
+            >
+              STATS
+            </button>
+          </div>
+
+          <div className="text-xs font-mono-code text-stone-400 flex items-center gap-2">
+            <span className="flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-stone-500'}`} />
+              <span className={isOnline ? 'text-stone-300' : 'text-stone-500'}>
+                {isOnline ? 'Rider Available (Visible for Incoming Dispatches)' : 'Rider Offline (Hidden from Incoming Dispatches)'}
+              </span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -241,7 +384,7 @@ export const RiderCockpit: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="font-display font-bold text-base text-white uppercase tracking-wider flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-amber-400 animate-pulse' : 'bg-stone-500'}`} />
               Active Dispatch Queue ({activeOrders.length})
             </h2>
             <div className="flex items-center gap-2">
@@ -266,6 +409,46 @@ export const RiderCockpit: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* OFFLINE STATUS NOTICE BANNER */}
+          {!isOnline && (
+            <div className="p-4 bg-stone-900 border border-amber-500/30 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-stone-800 text-amber-400 border border-stone-700 flex items-center justify-center shrink-0">
+                  <PowerOff className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono-code font-bold text-xs text-stone-200 uppercase tracking-wider">
+                      Rider Availability: OFFLINE
+                    </span>
+                    <span className="text-[10px] font-mono-code bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded border border-stone-700">
+                      Firestore Synced
+                    </span>
+                    <span className="text-[10px] font-mono-code bg-rose-950 text-rose-300 px-1.5 py-0.5 rounded border border-rose-500/30">
+                      Hidden from Incoming Orders
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-400 font-mono-code mt-0.5">
+                    Your status is set to OFFLINE in Firestore. Incoming customer dispatches across Manchester are paused and routed to online couriers.
+                    {hiddenIncomingCount > 0 && (
+                      <span className="text-amber-400 block sm:inline sm:ml-1 font-bold">
+                        ({hiddenIncomingCount} incoming order{hiddenIncomingCount > 1 ? 's' : ''} currently waiting in queue)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleToggleOnlineOffline}
+                disabled={isTogglingStatus}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-mono-code font-bold text-xs flex items-center gap-1.5 transition-colors shadow disabled:opacity-50"
+              >
+                <Power className="w-3.5 h-3.5" />
+                <span>Switch to ONLINE</span>
+              </button>
+            </div>
+          )}
 
           {/* Active Tesla Battery Hot-Swaps Queue */}
           {pendingSwaps.length > 0 && (
@@ -328,58 +511,90 @@ export const RiderCockpit: React.FC = () => {
           )}
 
           {activeOrders.length === 0 ? (
-            <div className="p-8 text-center bg-stone-900 border border-stone-800 rounded-2xl text-stone-400 space-y-4">
-              <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400" />
-              <div>
-                <p className="font-mono-code text-sm text-stone-200">
-                  {demoMode ? 'No active dispatches currently in flight.' : 'Dispatch Queue Clear — Standing By'}
-                </p>
-                <p className="text-xs text-stone-500">
-                  {demoMode 
-                    ? 'Inject a mock delivery to simulate bicycle routing and status updates.'
-                    : 'Live courier telemetry is active. Standing by for customer orders across Manchester.'
-                  }
-                </p>
+            !isOnline ? (
+              <div className="p-8 text-center bg-stone-900 border border-stone-800 rounded-2xl text-stone-400 space-y-4 shadow-inner">
+                <div className="w-14 h-14 rounded-2xl bg-stone-800 border border-stone-700 mx-auto flex items-center justify-center text-stone-400 shadow">
+                  <EyeOff className="w-7 h-7" />
+                </div>
+                <div className="max-w-md mx-auto space-y-1.5">
+                  <p className="font-mono-code font-bold text-sm text-stone-200 uppercase tracking-wider">
+                    Incoming Orders Paused — Rider is Offline
+                  </p>
+                  <p className="text-xs text-stone-400 leading-relaxed">
+                    Your availability in Firestore is marked <strong className="text-stone-300">OFFLINE</strong>. New customer dispatches across Manchester are hidden and will not be routed to your unit.
+                  </p>
+                  {hiddenIncomingCount > 0 && (
+                    <div className="mt-2 p-2.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-300 text-xs font-mono-code flex items-center justify-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>{hiddenIncomingCount} incoming order{hiddenIncomingCount > 1 ? 's' : ''} waiting in Manchester queue.</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={handleToggleOnlineOffline}
+                    disabled={isTogglingStatus}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-mono-code font-bold text-xs flex items-center gap-2 transition-colors shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                  >
+                    <Power className="w-4 h-4" />
+                    <span>Go Online to Accept Orders</span>
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center justify-center gap-3">
-                {demoMode ? (
-                  <>
+            ) : (
+              <div className="p-8 text-center bg-stone-900 border border-stone-800 rounded-2xl text-stone-400 space-y-4">
+                <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400" />
+                <div>
+                  <p className="font-mono-code text-sm text-stone-200">
+                    {demoMode ? 'No active dispatches currently in flight.' : 'Dispatch Queue Clear — Standing By'}
+                  </p>
+                  <p className="text-xs text-stone-500">
+                    {demoMode 
+                      ? 'Inject a mock delivery to simulate bicycle routing and status updates.'
+                      : 'Live courier telemetry is active. Standing by for customer orders across Manchester.'
+                    }
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-3">
+                  {demoMode ? (
+                    <>
+                      <button
+                        onClick={async () => {
+                          setIsAddingMock(true);
+                          try {
+                            await addMockDelivery();
+                          } finally {
+                            setIsAddingMock(false);
+                          }
+                        }}
+                        disabled={isAddingMock}
+                        className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-mono-code font-bold text-xs flex items-center gap-2 transition-colors shadow"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Mock Delivery</span>
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await seedMockDeliveries();
+                        }}
+                        className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-mono-code font-bold text-xs flex items-center gap-2 transition-colors border border-stone-700"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Seed Full Queue</span>
+                      </button>
+                    </>
+                  ) : (
                     <button
-                      onClick={async () => {
-                        setIsAddingMock(true);
-                        try {
-                          await addMockDelivery();
-                        } finally {
-                          setIsAddingMock(false);
-                        }
-                      }}
-                      disabled={isAddingMock}
-                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-mono-code font-bold text-xs flex items-center gap-2 transition-colors shadow"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Mock Delivery</span>
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await seedMockDeliveries();
-                      }}
+                      onClick={refreshData}
                       className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-mono-code font-bold text-xs flex items-center gap-2 transition-colors border border-stone-700"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Seed Full Queue</span>
+                      <span>Check Inbound Dispatches</span>
                     </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={refreshData}
-                    className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-mono-code font-bold text-xs flex items-center gap-2 transition-colors border border-stone-700"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Check Inbound Dispatches</span>
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )
           ) : (
             <div className="space-y-4">
               {activeOrders.map(order => {

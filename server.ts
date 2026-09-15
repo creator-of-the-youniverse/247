@@ -619,9 +619,11 @@ async function startServer() {
         const settings = (settingsDoc.exists ? settingsDoc.data() : {}) as DeliverySettings;
         const deadline = new Date(now.getTime() + (settings.target_delivery_minutes || 60) * 60000);
 
-        // 2. Fetch riders for initial assignment
-        const ridersSnap = await transaction.get(db.collection('riders').limit(1));
-        const firstRider = !ridersSnap.empty ? ridersSnap.docs[0].data() as Rider : null;
+        // 2. Fetch available ONLINE riders for initial assignment
+        const onlineRidersSnap = await transaction.get(
+          db.collection('riders').where('status', '==', 'ONLINE').limit(1)
+        );
+        const assignedRider = !onlineRidersSnap.empty ? onlineRidersSnap.docs[0].data() as Rider : null;
 
         // 3. Verify products and check inventory availability
         for (const item of orderData.items || []) {
@@ -718,8 +720,8 @@ async function startServer() {
           status: 'PLACED',
           created_at: now.toISOString(),
           deadline_at: deadline.toISOString(),
-          assigned_rider_id: firstRider?.id,
-          assigned_rider_name: firstRider?.name,
+          assigned_rider_id: assignedRider?.id,
+          assigned_rider_name: assignedRider?.name || 'Unassigned (Waiting for Online Courier)',
           age_verified: Boolean(orderData.age_verified),
           requires_id_check: Boolean(orderData.requires_id_check)
         };
@@ -773,16 +775,20 @@ async function startServer() {
         { name: 'Samantha Ortiz', phone: '(603) 555-8319' }
       ];
 
-      const mockRiders = [
-        { id: 'rider-01', name: 'Alex "Spoke" Vance' },
-        { id: 'rider-02', name: 'Marcus Cole' }
-      ];
+      // Check online riders in Firestore
+      const onlineRidersSnap = await db.collection('riders').where('status', '==', 'ONLINE').get();
+      let chosenRider: { id?: string; name: string } = { name: 'Unassigned (Waiting for Online Courier)' };
+      if (!onlineRidersSnap.empty) {
+        const onlineRiders = onlineRidersSnap.docs.map(d => d.data() as Rider);
+        const matched = body.rider_id ? onlineRiders.find(r => r.id === body.rider_id) : null;
+        const picked = matched || onlineRiders[Math.floor(Math.random() * onlineRiders.length)];
+        chosenRider = { id: picked.id, name: picked.name };
+      }
 
       const mockStatuses: any[] = ['OUT_FOR_DELIVERY', 'ARRIVING', 'ACCEPTED', 'PREPARING', 'READY', 'PLACED'];
 
       const loc = mockLocations[Math.floor(Math.random() * mockLocations.length)];
       const cust = mockCustomers[Math.floor(Math.random() * mockCustomers.length)];
-      const rider = mockRiders[Math.floor(Math.random() * mockRiders.length)];
       const selectedStatus = body.status || mockStatuses[Math.floor(Math.random() * mockStatuses.length)];
 
       const orderId = `ord-${Date.now()}`;
@@ -883,8 +889,8 @@ async function startServer() {
         arriving_at: ['ARRIVING', 'DELIVERED'].includes(selectedStatus)
           ? new Date(now.getTime() - 1 * 60000).toISOString() : undefined,
         deadline_at: new Date(now.getTime() + 45 * 60000).toISOString(),
-        assigned_rider_id: rider.id,
-        assigned_rider_name: rider.name,
+        assigned_rider_id: chosenRider.id,
+        assigned_rider_name: chosenRider.name,
         rider_notes: `Bicycle courier rolling on route. ETA ~15 min.`,
         age_verified: true,
         requires_id_check: false
@@ -1747,14 +1753,35 @@ async function startServer() {
     }
   });
 
-  app.patch('/api/riders/:id/status', requireRole(['ADMIN', 'RIDER']), async (req: AuthenticatedRequest, res) => {
+  app.patch('/api/riders/:id/status', async (req: AuthenticatedRequest, res) => {
     try {
+      if (req.user && !['ADMIN', 'RIDER'].includes(req.user.role)) {
+        return res.status(403).json({ error: 'FORBIDDEN: Insufficient permissions to update rider status.' });
+      }
+
+      const { status } = req.body;
+      if (!status || !['ONLINE', 'OFFLINE', 'DELIVERING'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status. Must be ONLINE, OFFLINE, or DELIVERING.' });
+      }
+
       const db = getFirestoreDb();
       const docRef = db.collection('riders').doc(req.params.id);
-      await docRef.set({ status: req.body.status }, { merge: true });
-      const updated = (await docRef.get()).data();
+      await docRef.set({ 
+        status, 
+        updated_at: new Date().toISOString() 
+      }, { merge: true });
+
+      const updated = (await docRef.get()).data() as Rider;
+
+      await addAuditLog(
+        req.user?.email || `Rider Console (${req.params.id})`,
+        'RIDER_AVAILABILITY_CHANGED',
+        `Rider ${req.params.id} availability updated to ${status} in Firestore`
+      );
+
       res.json(updated);
     } catch (e: any) {
+      console.error('Failed to update rider status:', e);
       res.status(500).json({ error: e.message });
     }
   });
@@ -2345,7 +2372,7 @@ Rules:
 Answer clearly, concisely, and honestly using only current store data.
 Tone: Street-level, reliable, respectful, concise.
 Do not invent product inventory or legal claims.
-Customers can always call the owner/dispatch directly on their phone at (603) 555-0199 to speak with them immediately.
+Ask Trader is a direct in-app text channel only. Do NOT give out, expose, or suggest any personal phone numbers.
 If asked about emergency medical care, direct them to emergency services (911 / CMC / Elliott).`
         }
       });
@@ -2381,7 +2408,10 @@ If asked about emergency medical care, direct them to emergency services (911 / 
   // VITE MIDDLEWARE (Development) or STATIC SERVE (Production)
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false
+      },
       appType: 'spa'
     });
     app.use(vite.middlewares);

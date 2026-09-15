@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider } from './context/AuthContext';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { LiveLocationProvider } from './context/LiveLocationContext';
@@ -56,36 +57,47 @@ const MainApp: React.FC = () => {
       <main className={`flex-1 max-w-7xl w-full mx-auto p-3.5 sm:p-6 ${role === 'CUSTOMER' ? 'has-bottom-nav pb-28 sm:pb-8' : 'pb-8'}`}>
         {role === 'CUSTOMER' && (
           <>
-            {customerTab === 'HOME' && (
-              <HomeScreen
-                onNavigate={(tab) => setCustomerTab(tab)}
-                onOpenSendTrader={() => setSendTraderOpen(true)}
-                onOpenAskTrader={() => setAskTraderOpen(true)}
-                onOpenFreeEssentialModal={() => setFreeModalOpen(true)}
-              />
-            )}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={customerTab}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full"
+              >
+                {customerTab === 'HOME' && (
+                  <HomeScreen
+                    onNavigate={(tab) => setCustomerTab(tab)}
+                    onOpenSendTrader={() => setSendTraderOpen(true)}
+                    onOpenAskTrader={() => setAskTraderOpen(true)}
+                    onOpenFreeEssentialModal={() => setFreeModalOpen(true)}
+                  />
+                )}
 
-            {customerTab === 'SHOP' && (
-              <ShopScreen
-                onOpenFreeEssentialModal={() => setFreeModalOpen(true)}
-              />
-            )}
+                {customerTab === 'SHOP' && (
+                  <ShopScreen
+                    onOpenFreeEssentialModal={() => setFreeModalOpen(true)}
+                  />
+                )}
 
-            {customerTab === 'ORDERS' && (
-              <OrdersScreen />
-            )}
+                {customerTab === 'ORDERS' && (
+                  <OrdersScreen />
+                )}
 
-            {customerTab === 'TRADER_PASS' && (
-              <TraderPassScreen />
-            )}
+                {customerTab === 'TRADER_PASS' && (
+                  <TraderPassScreen />
+                )}
 
-            {customerTab === 'RESOURCES' && (
-              <ResourcesScreen />
-            )}
+                {customerTab === 'RESOURCES' && (
+                  <ResourcesScreen />
+                )}
 
-            {customerTab === 'ACCOUNT' && (
-              <SponsorScreen />
-            )}
+                {customerTab === 'ACCOUNT' && (
+                  <SponsorScreen />
+                )}
+              </motion.div>
+            </AnimatePresence>
 
             {/* Mobile Bottom Navigation Bar (Customer Only) */}
             <BottomNav
